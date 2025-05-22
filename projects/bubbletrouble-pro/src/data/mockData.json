@@ -1,0 +1,11 @@
+{
+  "topics": ["Technology", "Science", "Art", "History"],
+  "users": [
+    { "id": 1, "name": "Alice", "xp": 50 },
+    { "id": 2, "name": "Bob", "xp": 30 }
+  ],
+  "bubbles": [
+    { "id": 1, "topic": "Technology", "reflections": 10 },
+    { "id": 2, "topic": "Science", "reflections": 5 }
+  ]
+}

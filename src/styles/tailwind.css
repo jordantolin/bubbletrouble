@@ -1,0 +1,24 @@
+@import "@fontsource/inter";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.app-container {
+  @apply flex flex-col items-center justify-center min-h-screen bg-gray-100;
+}
+
+.ui-overlay {
+  @apply absolute top-0 left-0 w-full p-4 flex justify-between items-center;
+}
+
+.xp-bar {
+  @apply bg-gray-300 rounded-full h-4 w-1/2 relative;
+}
+
+.xp-bar-fill {
+  @apply bg-blue-500 h-full rounded-full;
+}
+
+.streak-counter {
+  @apply text-lg font-bold text-red-500;
+}

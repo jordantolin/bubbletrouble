@@ -1,0 +1,35 @@
+Crea un’applicazione React moderna chiamata “Bubble Trouble”, un social immersivo 3D con bolle orbitanti.
+
+La base di partenza è visibile qui: https://github.com/jordantolin/bubble-trouble-social
+
+Tecnologie:
+- React + Vite
+- Three.js
+- Tailwind CSS
+- Componenti modulari (UI e logica separata)
+- Animazioni fluide e moderne
+- Responsive + mobile ready
+
+Funzionalità da includere:
+1. Mondo 3D con bolle animate che orbitano intorno a un punto centrale.
+2. Ogni bolla rappresenta un topic. Visualizza titolo e contatore “riflessioni”.
+3. Barra XP (incrementabile da interazioni) e streak visivo (🔥 +1).
+4. Dropdown con scelta dei topic. Cambia le bolle in base alla selezione.
+5. Barra di ricerca per filtrare argomenti.
+6. Badge animati per achievement (mock).
+7. Dati mock iniziali (JSON), per topic, utenti e bolle.
+
+Struttura del progetto:
+- /src/components (UI, XPBar, Streak, Dropdown, Notification)
+- /src/three (ThreeDWorld, Bubble, controls)
+- /src/data (mock JSON)
+- /src/styles (tailwind.css)
+- vite.config.js + tailwind.config.js + index.html
+
+Il codice deve essere:
+- Pubblicabile su Vercel
+- Commentato
+- Intuitivo da estendere
+
+Genera prima tutta la struttura, poi i componenti principali.
+

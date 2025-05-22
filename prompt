@@ -1,0 +1,26 @@
+Crea la base tecnica per un'applicazione web chiamata "Bubble Trouble".
+
+Si tratta di un social network immersivo in cui le conversazioni sono rappresentate da **bolle 3D** che orbitano attorno a un mondo centrale esplorabile.
+
+Tecnologie:
+- React con Three.js per il mondo 3D
+- Tailwind CSS per lo styling
+- Supporto per interazioni fluide e animazioni
+- Struttura modulare del codice (componenti chiari)
+- Next.js o Vite come framework di partenza
+
+Funzionalità richieste:
+1. Mondo 3D interattivo con controllo della camera e zoom fluido.
+2. Bolle che rappresentano discussioni. Ogni bolla contiene un titolo e il numero di riflessioni ricevute.
+3. Ordinamento delle bolle per "Most Reflected" e "Latest".
+4. Gamification:
+   - XP bar e livelli (ogni azione guadagna XP)
+   - Streak giornaliero (con animazione tipo “🔥+1 Streak!”)
+   - Achievement (es. “First Reflection”, “Bubble Master”) visibili nel profilo utente con icone animate
+5. Barra di ricerca per cercare discussioni.
+6. UI soddisfacente, fluida e immersiva, pensata per il 2025: animazioni piacevoli, stile pulito, componenti arrotondati e leggibilità perfetta.
+
+Non voglio un social classico. L'esperienza utente dev’essere **coinvolgente e innovativa**, lontana dai feed statici.
+
+Inizia generando la struttura di base del frontend, con alcune bolle mockup orbitanti e UI base per XP e streak. I dati possono essere finti/hardcoded inizialmente.
+

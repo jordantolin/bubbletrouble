@@ -1,0 +1,218 @@
+
+2025-05-22T18:53:02.488402
+================================ System Message ================================
+
+You will get information about a codebase that is currently on disk in the current folder.
+The user will ask you to write a script that runs the code in a specific way.
+You will answer with code blocks that include all the necessary terminal commands.
+Do not install globally. Do not use sudo.
+Do not explain the code, just give the commands.
+Do not use placeholders, use example values (like . for a folder argument) if necessary.
+
+
+================================ Human Message =================================
+
+
+        Make a unix script that
+        a) installs dependencies
+        b) runs all necessary parts of the codebase (in parallel if necessary)
+        
+Information about the codebase:
+
+```
+File: package.json
+1 {
+2   "name": "bubble-trouble",
+3   "version": "1.0.0",
+4   "description": "An immersive social network with 3D bubbles.",
+5   "main": "src/main.jsx",
+6   "scripts": {
+7     "dev": "vite",
+8     "build": "vite build",
+9     "serve": "vite preview"
+10   },
+11   "dependencies": {
+12     "react": "^18.2.0",
+13     "react-dom": "^18.2.0",
+14     "three": "^0.152.0",
+15     "tailwindcss": "^3.2.0"
+16   },
+17   "devDependencies": {
+18     "vite": "^4.0.0"
+19   }
+20 }
+
+File: vite.config.js
+1 import { defineConfig } from 'vite';
+2 import react from '@vitejs/plugin-react';
+3 
+4 export default defineConfig({
+5   plugins: [react()],
+6 });
+
+File: src/main.jsx
+1 import React from 'react';
+2 import ReactDOM from 'react-dom/client';
+3 import App from './App';
+4 import './styles/tailwind.css';
+5 
+6 ReactDOM.createRoot(document.getElementById('root')).render(
+7   <React.StrictMode>
+8     <App />
+9   </React.StrictMode>
+10 );
+
+File: src/App.jsx
+1 import React from 'react';
+2 import ThreeDWorld from './components/ThreeDWorld';
+3 import XPBar from './components/XPBar';
+4 import StreakCounter from './components/StreakCounter';
+5 
+6 function App() {
+7   return (
+8     <div className="app-container">
+9       <ThreeDWorld />
+10       <div className="ui-overlay">
+11         <XPBar />
+12         <StreakCounter />
+13       </div>
+14     </div>
+15   );
+16 }
+17 
+18 export default App;
+
+File: src/components/ThreeDWorld.jsx
+1 import React, { useRef, useEffect } from 'react';
+2 import * as THREE from 'three';
+3 import Bubble from './Bubble';
+4 
+5 function ThreeDWorld() {
+6   const mountRef = useRef(null);
+7 
+8   useEffect(() => {
+9     const scene = new THREE.Scene();
+10     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+11     const renderer = new THREE.WebGLRenderer({ antialias: true });
+12     renderer.setSize(window.innerWidth, window.innerHeight);
+13     mountRef.current.appendChild(renderer.domElement);
+14 
+15     const geometry = new THREE.SphereGeometry(1, 32, 32);
+16     const material = new THREE.MeshBasicMaterial({ color: 0x0077ff });
+17     const sphere = new THREE.Mesh(geometry, material);
+18     scene.add(sphere);
+19 
+20     camera.position.z = 5;
+21 
+22     const animate = function () {
+23       requestAnimationFrame(animate);
+24       sphere.rotation.x += 0.01;
+25       sphere.rotation.y += 0.01;
+26       renderer.render(scene, camera);
+27     };
+28 
+29     animate();
+30 
+31     return () => {
+32       mountRef.current.removeChild(renderer.domElement);
+33     };
+34   }, []);
+35 
+36   return <div ref={mountRef} />;
+37 }
+38 
+39 export default ThreeDWorld;
+
+File: src/components/Bubble.jsx
+1 import React from 'react';
+2 
+3 function Bubble({ title, reflections }) {
+4   return (
+5     <div className="bubble">
+6       <h3>{title}</h3>
+7       <p>{reflections} reflections</p>
+8     </div>
+9   );
+10 }
+11 
+12 export default Bubble;
+
+File: src/components/XPBar.jsx
+1 import React from 'react';
+2 
+3 function XPBar() {
+4   const xp = 50; // Mock XP value
+5   const level = 2; // Mock level
+6 
+7   return (
+8     <div className="xp-bar">
+9       <div className="xp-bar-fill" style={{ width: `${xp}%` }}></div>
+10       <span>Level {level}</span>
+11     </div>
+12   );
+13 }
+14 
+15 export default XPBar;
+
+File: src/components/StreakCounter.jsx
+1 import React from 'react';
+2 
+3 function StreakCounter() {
+4   const streak = 5; // Mock streak value
+5 
+6   return (
+7     <div className="streak-counter">
+8       <span>🔥 {streak} Streak!</span>
+9     </div>
+10   );
+11 }
+12 
+13 export default StreakCounter;
+
+File: src/styles/tailwind.css
+1 @tailwind base;
+2 @tailwind components;
+3 @tailwind utilities;
+4 
+5 .app-container {
+6   @apply flex flex-col items-center justify-center min-h-screen bg-gray-100;
+7 }
+8 
+9 .ui-overlay {
+10   @apply absolute top-0 left-0 w-full p-4 flex justify-between items-center;
+11 }
+12 
+13 .xp-bar {
+14   @apply bg-gray-300 rounded-full h-4 w-1/2 relative;
+15 }
+16 
+17 .xp-bar-fill {
+18   @apply bg-blue-500 h-full rounded-full;
+19 }
+20 
+21 .streak-counter {
+22   @apply text-lg font-bold text-red-500;
+23 }
+
+File: tailwind.config.js
+1 module.exports = {
+2   content: ['./src/**/*.{js,jsx,ts,tsx}'],
+3   theme: {
+4     extend: {},
+5   },
+6   plugins: [],
+7 };
+
+```
+
+================================== Ai Message ==================================
+
+```bash
+#!/bin/bash
+
+# Install dependencies
+npm install
+
+# Run the development server
+npm run dev
+```

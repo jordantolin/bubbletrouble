@@ -1,0 +1,20 @@
+{
+  "name": "bubble-trouble",
+  "version": "1.0.0",
+  "description": "A futuristic, playful, and spiritual social network.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "three": "^0.142.0",
+    "tailwindcss": "^3.0.0"
+  },
+  "devDependencies": {
+    "vite": "^3.0.0"
+  }
+}

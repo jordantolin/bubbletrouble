@@ -1,0 +1,33 @@
+{
+  "topics": [
+    "Technology",
+    "Science",
+    "Art"
+  ],
+  "discussions": [
+    {
+      "id": 1,
+      "topic": "Technology",
+      "title": "The Future of AI",
+      "content": "Discussion about the advancements in AI technology."
+    },
+    {
+      "id": 2,
+      "topic": "Science",
+      "title": "Space Exploration",
+      "content": "Discussion about the latest in space exploration."
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "name": "Alice",
+      "xp": 50
+    },
+    {
+      "id": 2,
+      "name": "Bob",
+      "xp": 75
+    }
+  ]
+}

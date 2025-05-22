@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #f0f4f8;
+}
+
+.topic-menu {
+  margin: 20px;
+}
+
+.xp-bar {
+  width: 80%;
+  background-color: #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.xp-progress {
+  background-color: #76c7c0;
+  height: 20px;
+  text-align: center;
+  color: white;
+  line-height: 20px;
+}
+
+.streak-counter {
+  font-size: 1.5rem;
+  margin: 10px 0;
+}

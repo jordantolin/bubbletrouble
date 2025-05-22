@@ -1,0 +1,40 @@
+Crea una nuova versione dell'app "Bubble Trouble", un social network immersivo.
+
+La versione precedente è disponibile qui:
+https://github.com/jordantolin/bubble-trouble-social
+
+Devi riscrivere l'app con una struttura moderna, pulita, estendibile, pronta per il deploy su Vercel. Mantieni lo stile futuristico, giocoso e spirituale.
+
+Tecnologie:
+- React + Vite
+- Tailwind CSS
+- Three.js per il mondo 3D
+- Modularità perfetta dei componenti
+- Animazioni fluide e interattive
+- Supporto mobile e responsive
+
+Funzionalità:
+1. Mondo 3D con bolle orbitanti attorno a un punto centrale
+2. Ogni bolla rappresenta una conversazione o argomento (topic)
+3. Dropdown per selezionare topic e filtrare bolle
+4. Barra di ricerca
+5. Gamification:
+   - XP bar visibile
+   - Streak giornaliero con effetto “🔥 +1”
+   - Achievement con badge animati
+6. Notifiche UI “satisfying”
+7. Ordinamento delle bolle: Most Reflected / Latest
+8. Mock dati (inizialmente statici) per simulare discussioni, utenti e punti XP
+
+Organizza il codice in:
+- /src/components
+- /src/threejs
+- /src/styles
+- /src/data (con JSON mock)
+
+Inizia con una struttura base funzionante, con almeno una bolla orbitante, un menu topic, una barra XP e il contatore streak.
+
+I dati possono essere statici (mocked). Ogni file dev'essere documentato e leggibile. Usa naming chiaro, struttura solida. Aggiungi commenti per ogni funzione importante.
+
+Il codice deve essere pubblicabile su Vercel senza modifiche aggiuntive.
+
