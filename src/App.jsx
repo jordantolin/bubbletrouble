@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Profile from './pages/Profile';
 
@@ -8,31 +8,21 @@ import ThreeDCanvas from './components/ThreeDCanvas';
 import UIOverlay from './components/UIOverlay';
 
 const bubblesData = [
-  { id: 1, title: 'Filosofia', description: 'Discussioni filosofiche' },
-  { id: 2, title: 'Spiritualità', description: 'Argomenti spirituali' },
-  { id: 3, title: 'Tecnologia', description: 'Ultime novità tech' },
-  { id: 4, title: 'Arte', description: 'Eventi artistici' },
-  { id: 5, title: 'Psiche', description: 'Riflessioni sulla mente' },
-  { id: 6, title: 'Scienza', description: 'Scoperte scientifiche' },
-  { id: 7, title: 'Società', description: 'Discussioni sociali' },
-  { id: 8, title: 'Musica', description: 'Novità musicali' },
-  { id: 9, title: 'Cinema', description: 'Film e serie' },
-  { id: 10, title: 'Miti', description: 'Miti e leggende' },
-  { id: 11, title: 'Visioni', description: 'Prospettive e sogni' },
-  { id: 12, title: 'Realtà', description: 'Filosofia della realtà' },
-  { id: 13, title: 'Amore', description: 'Relazioni e sentimenti' },
-  { id: 14, title: 'Tempo', description: 'Concetti di tempo' },
+  { id: 1, title: 'Filosofia', description: 'Discussioni filosofiche', reflections: 45, userCount: 23 },
+  { id: 2, title: 'Spiritualità', description: 'Argomenti spirituali', reflections: 75, userCount: 17 },
+  { id: 3, title: 'Tecnologia', description: 'Ultime novità tech', reflections: 15, userCount: 29 },
+  { id: 4, title: 'Arte', description: 'Eventi artistici', reflections: 60, userCount: 5 },
+  { id: 5, title: 'Psiche', description: 'Riflessioni sulla mente', reflections: 25, userCount: 11 },
+  { id: 6, title: 'Scienza', description: 'Scoperte scientifiche', reflections: 32, userCount: 20 },
+  { id: 7, title: 'Società', description: 'Discussioni sociali', reflections: 10, userCount: 8 },
+  { id: 8, title: 'Musica', description: 'Novità musicali', reflections: 18, userCount: 4 },
+  { id: 9, title: 'Cinema', description: 'Film e serie', reflections: 55, userCount: 14 },
+  { id: 10, title: 'Miti', description: 'Miti e leggende', reflections: 23, userCount: 9 },
+  { id: 11, title: 'Visioni', description: 'Prospettive e sogni', reflections: 40, userCount: 19 },
+  { id: 12, title: 'Realtà', description: 'Filosofia della realtà', reflections: 12, userCount: 6 },
+  { id: 13, title: 'Amore', description: 'Relazioni e sentimenti', reflections: 35, userCount: 21 },
+  { id: 14, title: 'Tempo', description: 'Concetti di tempo', reflections: 5, userCount: 3 },
 ];
-
-// Hook debounce personalizzato
-function useDebounce(value, delay) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debouncedValue;
-}
 
 function MainApp() {
   const [showSplash, setShowSplash] = useState(true);
@@ -46,12 +36,10 @@ function MainApp() {
     setStreak((prev) => prev + 1);
   };
 
-  // Debounce con delay 1000ms per massima fluidità
-  const debouncedSearchText = useDebounce(searchText, 1000);
-
+  // Filtro immediato senza debounce
   const filteredBubbles = bubblesData.filter(bubble =>
-    bubble.title.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
-    bubble.description.toLowerCase().includes(debouncedSearchText.toLowerCase())
+    bubble.title.toLowerCase().includes(searchText.toLowerCase()) ||
+    bubble.description.toLowerCase().includes(searchText.toLowerCase())
   );
 
   return (

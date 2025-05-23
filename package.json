@@ -11,11 +11,13 @@
   "dependencies": {
     "@fontsource/inter": "^5.2.5",
     "@heroicons/react": "^2.2.0",
+    "@react-spring/three": "^10.0.1",
     "@react-three/drei": "^9.56.11",
     "@react-three/fiber": "^8.13.2",
     "@tailwindcss/forms": "^0.5.10",
     "@vitejs/plugin-react": "^4.4.1",
     "axios": "^1.9.0",
+    "framer-motion": "^12.12.1",
     "lucide-react": "^0.511.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
