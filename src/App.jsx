@@ -6,6 +6,7 @@ import Header from './components/Header';
 import SplashScreen from './components/SplashScreen';
 import ThreeDCanvas from './components/ThreeDCanvas';
 import UIOverlay from './components/UIOverlay';
+import ChatView from './components/ChatView'; // importa ChatView
 
 const bubblesData = [
   { id: 1, title: 'Filosofia', description: 'Discussioni filosofiche', reflections: 45, userCount: 23 },
@@ -36,7 +37,6 @@ function MainApp() {
     setStreak((prev) => prev + 1);
   };
 
-  // Filtro immediato senza debounce
   const filteredBubbles = bubblesData.filter(bubble =>
     bubble.title.toLowerCase().includes(searchText.toLowerCase()) ||
     bubble.description.toLowerCase().includes(searchText.toLowerCase())
@@ -79,6 +79,8 @@ function App() {
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/profile" element={<Profile />} />
+        {/* Aggiungi la rotta chat con parametro */}
+        <Route path="/chat/:topic" element={<ChatView />} />
       </Routes>
     </Router>
   );
