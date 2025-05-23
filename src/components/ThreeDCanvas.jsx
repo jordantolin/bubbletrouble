@@ -3,11 +3,6 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import { useNavigate } from 'react-router-dom';
 
-const topics = [
-  'Filosofia', 'Spiritualità', 'Tecnologia', 'Arte', 'Psiche', 'Scienza',
-  'Società', 'Musica', 'Cinema', 'Miti', 'Visioni', 'Realtà', 'Amore', 'Tempo'
-];
-
 const Bubble = ({ orbit, topic, onClick }) => {
   const ref = useRef();
 
@@ -58,19 +53,26 @@ const PlanetCore = () => {
   );
 };
 
-const ThreeDCanvas = () => {
+const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const navigate = useNavigate();
 
-  const orbits = topics.map(() => ({
-    radius: 6 + Math.random() * 3,
-    speed: 0.15 + Math.random() * 0.1,
-    offset: Math.random() * Math.PI * 2,
-    inclination: Math.random() * Math.PI,
-  }));
+  // genera orbite una volta sola in base al numero di bolle filtrate
+  const orbits = React.useMemo(() => 
+    bubbles.map(() => ({
+      radius: 6 + Math.random() * 3,
+      speed: 0.15 + Math.random() * 0.1,
+      offset: Math.random() * Math.PI * 2,
+      inclination: Math.random() * Math.PI,
+    })), [bubbles]
+  );
 
   const handleBubbleClick = (topic) => {
-    navigate(`/chat/${encodeURIComponent(topic.title)}`);
+    if (onBubbleClick) {
+      onBubbleClick(topic);
+    } else {
+      navigate(`/chat/${encodeURIComponent(topic.title)}`);
+    }
   };
 
   return (
@@ -84,9 +86,9 @@ const ThreeDCanvas = () => {
 
         {orbits.map((orbit, i) => (
           <Bubble
-            key={i}
+            key={bubbles[i].id}
             orbit={orbit}
-            topic={{ title: topics[i % topics.length] }}
+            topic={bubbles[i]}
             onClick={handleBubbleClick}
           />
         ))}
