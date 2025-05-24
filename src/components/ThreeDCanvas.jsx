@@ -1,71 +1,181 @@
-// src/components/ThreeDCanvas.jsx
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import { useNavigate } from 'react-router-dom';
 import { useSpring, animated } from '@react-spring/three';
+import { Sparkles } from 'lucide-react'; // usa un'icona moderna (installare lucide-react o sostituire con span)
 
 const AnimatedGroup = animated.group;
 
-const Bubble = ({ orbit, topic, reflections, userCount, onClick, onHover }) => {
+// PALETTE
+const BASE_BUBBLE_COLOR = "#FFD600";   // Giallo più acceso
+const HOVER_BUBBLE_COLOR = "#FFEA60";  // Più chiaro e luminoso in hover
+const BUBBLE_EMISSIVE = "#FFD600";
+const GLOW_COLOR = "#FFF6B3";          // Glow sottile
+const LABEL_COLOR = "#BB8500";
+
+// --- Bubble Component
+const Bubble = ({
+  idx,
+  topic,
+  reflections,
+  userCount,
+  positions,
+  setPositions,
+  orbitCenters,
+  onClick,
+  onHover,
+  isMobile,
+}) => {
   const ref = useRef();
   const [hovered, setHovered] = useState(false);
 
+  // Dynamic size
+  const safeReflections = typeof reflections === 'number' && !isNaN(reflections) ? reflections : 0;
+  const safeUserCount = typeof userCount === 'number' && !isNaN(userCount) ? userCount : 0;
+  const dynamicRadius = Math.max(
+    Math.min(1 * (1 + 0.2 * (safeReflections / 50) + 0.1 * (safeUserCount / 30)), 1.7),
+    0.9
+  );
+
+  const posRef = useRef({ x: 0, y: 0, z: 0 });
   useFrame(({ clock }) => {
-    const t = clock.getElapsedTime() * orbit.speed;
+    const t = clock.getElapsedTime() * orbitCenters[idx].speed;
+    const center = {
+      x: orbitCenters[idx].radius * Math.sin(t + orbitCenters[idx].offset) * Math.cos(orbitCenters[idx].inclination),
+      y: orbitCenters[idx].radius * Math.sin(t + orbitCenters[idx].offset) * Math.sin(orbitCenters[idx].inclination),
+      z: orbitCenters[idx].radius * Math.cos(t + orbitCenters[idx].offset),
+    };
 
-    ref.current.position.x = orbit.radius * Math.sin(t + orbit.offset) * Math.cos(orbit.inclination);
-    ref.current.position.y = orbit.radius * Math.sin(t + orbit.offset) * Math.sin(orbit.inclination);
-    ref.current.position.z = orbit.radius * Math.cos(t + orbit.offset);
+    let pos = posRef.current;
+    pos = {
+      x: pos.x + (center.x - pos.x) * 0.13,
+      y: pos.y + (center.y - pos.y) * 0.13,
+      z: pos.z + (center.z - pos.z) * 0.13,
+    };
 
-    ref.current.rotation.y += 0.002;
-    ref.current.rotation.x += 0.0015;
+    for (let relax = 0; relax < 5; relax++) {
+      positions.forEach((p, j) => {
+        if (j === idx || !p) return;
+        const otherRadius = p.radius ?? 1;
+        const d = Math.sqrt((pos.x - p.x) ** 2 + (pos.y - p.y) ** 2 + (pos.z - p.z) ** 2);
+        const minDist = dynamicRadius + otherRadius + 0.01;
+        if (d < minDist && d > 0) {
+          const overlap = (minDist - d) / 2;
+          const nx = (pos.x - p.x) / d;
+          const ny = (pos.y - p.y) / d;
+          const nz = (pos.z - p.z) / d;
+          pos.x += nx * overlap;
+          pos.y += ny * overlap;
+          pos.z += nz * overlap;
+        }
+      });
+    }
+
+    const dCenter = Math.sqrt(pos.x ** 2 + pos.y ** 2 + pos.z ** 2);
+    if (dCenter > 9.5) {
+      const scale = (9.5 - dynamicRadius) / dCenter;
+      pos.x *= scale;
+      pos.y *= scale;
+      pos.z *= scale;
+    }
+
+    posRef.current = pos;
+    setPositions(idx, { ...pos, radius: dynamicRadius });
+
+    if (ref.current) {
+      ref.current.position.set(pos.x, pos.y, pos.z);
+      ref.current.rotation.y += 0.002;
+      ref.current.rotation.x += 0.0015;
+    }
   });
 
-  const intensity = Math.min(reflections / 100, 1);
-  const baseColor = `rgba(250, 204, 21, ${0.6 + intensity * 0.4})`;
-  const hoverColor = '#FFF59D';
-
+  // Animazione scala e glow
   const { scale } = useSpring({
-    scale: hovered ? 1.15 : 1,
-    config: { mass: 1, tension: 180, friction: 12 },
+    scale: hovered ? 1.17 : 1,
+    config: { mass: 1, tension: 300, friction: 18 },
   });
+  const { glow } = useSpring({
+    glow: hovered ? 0.36 : 0.09,
+    config: { tension: 210, friction: 20 },
+  });
+
+  const handleEnter = (e) => {
+    setHovered(true);
+    onHover(e, topic, safeReflections, safeUserCount, ref.current);
+    if (!isMobile) document.body.style.cursor = 'pointer';
+  };
+  const handleLeave = (e) => {
+    setHovered(false);
+    onHover(null);
+    if (!isMobile) document.body.style.cursor = 'default';
+  };
+
+  const labelFontSize = isMobile ? '0.9rem' : '1.13rem';
 
   return (
     <AnimatedGroup
       ref={ref}
-      onPointerOver={(e) => {
-        setHovered(true);
-        onHover(e, topic, reflections, userCount);
-        e.stopPropagation();
-        document.body.style.cursor = 'pointer';
-      }}
-      onPointerOut={(e) => {
-        setHovered(false);
-        onHover(null);
-        e.stopPropagation();
-        document.body.style.cursor = 'default';
-      }}
+      onPointerOver={handleEnter}
+      onPointerOut={handleLeave}
       onClick={() => onClick(topic)}
       scale={scale}
       castShadow
       receiveShadow
       className="cursor-pointer"
     >
-      <mesh frustumCulled geometry={new THREE.SphereGeometry(1, 16, 16)}>
+      {/* Bolla base */}
+      <mesh frustumCulled geometry={new THREE.SphereGeometry(dynamicRadius, 40, 40)}>
         <meshStandardMaterial
-          color={hovered ? hoverColor : baseColor}
-          roughness={0.3}
-          metalness={0.4}
-          emissive="#FACC15"
-          emissiveIntensity={0.2 + intensity * 0.6}
+          color={hovered ? HOVER_BUBBLE_COLOR : BASE_BUBBLE_COLOR}
+          roughness={0.09}
+          metalness={0.25}
+          transparent={false}
+          opacity={1}
+          emissive={BUBBLE_EMISSIVE}
+          emissiveIntensity={0.22 + (hovered ? 0.18 : 0)}
         />
       </mesh>
-      <Html distanceFactor={10} style={{ pointerEvents: 'none', userSelect: 'none' }}>
+      {/* Glow */}
+      <animated.mesh
+        frustumCulled
+        geometry={new THREE.SphereGeometry(dynamicRadius * 1.13, 40, 40)}
+        visible={hovered}
+      >
+        <meshStandardMaterial
+          color={GLOW_COLOR}
+          roughness={0.6}
+          metalness={0.04}
+          transparent
+          opacity={glow.to(g => g)}
+          emissive={GLOW_COLOR}
+          emissiveIntensity={glow.to(g => g)}
+        />
+      </animated.mesh>
+      {/* Label */}
+      <Html distanceFactor={10} style={{ pointerEvents: 'none', userSelect: 'none', marginTop: -12 }}>
         <div
-          className="text-xs font-elegant font-semibold text-yellow-800 text-center drop-shadow-md select-none"
-          style={{ whiteSpace: 'nowrap', userSelect: 'none' }}
+          className="font-semibold font-elegant"
+          style={{
+            fontSize: labelFontSize,
+            color: LABEL_COLOR,
+            background: 'rgba(255,255,240,0.94)',
+            borderRadius: '1.5em',
+            padding: isMobile ? '4px 10px' : '7px 18px',
+            boxShadow: hovered
+              ? '0 3px 14px 1px #ffd60044'
+              : '0 1px 8px 0 rgba(250,204,21,0.08), 0 0.5px 2px 0 rgba(0,0,0,0.03)',
+            minWidth: 60,
+            maxWidth: isMobile ? 80 : 150,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            margin: '0 auto',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            letterSpacing: 0.02,
+          }}
         >
           {topic.title}
         </div>
@@ -76,125 +186,211 @@ const Bubble = ({ orbit, topic, reflections, userCount, onClick, onHover }) => {
 
 const PlanetCore = () => (
   <mesh receiveShadow>
-    <sphereGeometry args={[2.5, 16, 16]} />
+    <sphereGeometry args={[2.45, 40, 40]} />
     <meshStandardMaterial
-      color="#E5E7EB"
-      roughness={0.4}
-      metalness={0.2}
-      emissive="#D1D5DB"
-      emissiveIntensity={0.15}
+      color="#f5f6f7"
+      roughness={0.35}
+      metalness={0.12}
+      emissive="#fbe7a7"
+      emissiveIntensity={0.16}
     />
   </mesh>
 );
 
+const MobileTooltip = ({ tooltip, onClose }) => (
+  <div
+    style={{
+      position: 'fixed',
+      left: 0,
+      bottom: 0,
+      width: '100vw',
+      minHeight: 80,
+      background: 'rgba(255, 250, 224, 0.98)',
+      color: '#333',
+      fontWeight: 600,
+      fontSize: 17,
+      borderTop: '2px solid #ffd600',
+      borderRadius: '22px 22px 0 0',
+      zIndex: 10000,
+      boxShadow: '0 -6px 32px 0 rgba(255,200,32,0.11)',
+      padding: 18,
+      transition: 'transform 0.22s cubic-bezier(.51,.26,.45,1.33)',
+      transform: tooltip.visible ? 'translateY(0)' : 'translateY(100%)',
+      pointerEvents: tooltip.visible ? 'auto' : 'none',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 8,
+    }}
+    onClick={onClose}
+  >
+    <span style={{ fontSize: 22, color: "#FFD600" }}><Sparkles size={20} /></span>
+    {tooltip.content}
+    <span style={{ fontSize: 13, marginTop: 2, color: '#888', fontWeight: 400 }}>
+      Tap anywhere to close
+    </span>
+  </div>
+);
+
+const DesktopTooltip = ({ tooltip }) => (
+  <div
+    style={{
+      position: 'fixed',
+      top: tooltip.y,
+      left: tooltip.x,
+      pointerEvents: 'none',
+      padding: '13px 20px',
+      background: 'rgba(255, 250, 224, 0.98)',
+      color: '#333',
+      borderRadius: '18px',
+      fontWeight: 500,
+      fontSize: '16px',
+      whiteSpace: 'nowrap',
+      boxShadow: '0 4px 28px rgba(255,200,32,0.18), 0 2px 5px #ffd60033',
+      opacity: tooltip.visible ? 1 : 0,
+      transition: 'opacity 0.22s, transform 0.22s cubic-bezier(.51,.26,.45,1.33)',
+      transform: tooltip.visible ? 'translate(0,0)' : 'translate(-14px,-14px)',
+      zIndex: 10000,
+      userSelect: 'none',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 14,
+    }}
+  >
+    <span style={{ fontSize: 20, color: "#FFD600" }}><Sparkles size={20} /></span>
+    {tooltip.content}
+  </div>
+);
+
 const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const [isMobile, setIsMobile] = useState(false);
+  const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, content: '' });
   const navigate = useNavigate();
 
-  // Tooltip stato: posizione {x,y} e contenuto, visibilità
-  const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, content: '' });
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
-  const orbits = React.useMemo(
-    () =>
-      bubbles.map(() => ({
-        radius: 6 + Math.random() * 3,
-        speed: 0.15 + Math.random() * 0.1,
-        offset: Math.random() * Math.PI * 2,
-        inclination: Math.random() * Math.PI,
-      })),
-    [bubbles]
+  const [positions, setPositionsState] = useState(
+    bubbles.map(() => ({ x: 0, y: 0, z: 0, radius: 1 }))
+  );
+  useEffect(() => {
+    setPositionsState(bubbles.map(() => ({ x: 0, y: 0, z: 0, radius: 1 })));
+  }, [bubbles]);
+
+  const setPositions = (idx, pos) => {
+    setPositionsState((prev) => {
+      const updated = [...prev];
+      updated[idx] = pos;
+      return updated;
+    });
+  };
+
+  const [orbitCenters] = useState(() =>
+    bubbles.map(() => ({
+      radius: 6 + Math.random() * 3,
+      speed: 0.13 + Math.random() * 0.09,
+      offset: Math.random() * Math.PI * 2,
+      inclination: Math.random() * Math.PI,
+    }))
   );
 
   const handleBubbleClick = (topic) => {
-    if (onBubbleClick) {
-      onBubbleClick(topic);
-    } else {
-      navigate(`/chat/${encodeURIComponent(topic.title)}`);
-    }
+    if (onBubbleClick) onBubbleClick(topic);
+    else navigate(`/chat/${encodeURIComponent(topic.title)}`);
   };
 
-  // Aggiorna tooltip su hover
+  // Tooltip logic con miglioramenti UX
   const handleHover = (e, topic, reflections, userCount) => {
-    if (e) {
+    if (e && topic) {
       setTooltip({
         visible: true,
-        x: e.clientX + 15,
-        y: e.clientY + 15,
+        ...(isMobile
+          ? { x: 0, y: 0 }
+          : { x: e.clientX + 12, y: e.clientY + 8 }
+        ),
         content: (
-          <div className="font-elegant text-sm text-gray-900 select-none">
-            <div><strong>{topic.title}</strong></div>
-            <div>✨ Reflections: {reflections}</div>
-            <div>👥 Users: {userCount}</div>
+          <div style={{ lineHeight: 1.55 }}>
+            <div style={{ fontWeight: 700, color: LABEL_COLOR, marginBottom: 2 }}>{topic.title}</div>
+            <div>
+              <span style={{ color: "#FFD600" }}>✨</span> <b>{reflections}</b> reflections
+            </div>
+            <div>
+              <span style={{ color: "#FFD600" }}>👥</span> <b>{userCount}</b> users
+            </div>
           </div>
         ),
       });
     } else {
-      setTooltip({ visible: false, x: 0, y: 0, content: '' });
+      setTooltip((prev) => ({ ...prev, visible: false }));
     }
   };
 
+  // Tooltip mobile: chiusura su tap fuori
+  useEffect(() => {
+    if (!isMobile) return;
+    if (!tooltip.visible) return;
+    const handler = (e) => setTooltip((prev) => ({ ...prev, visible: false }));
+    window.addEventListener('touchstart', handler);
+    return () => window.removeEventListener('touchstart', handler);
+    // eslint-disable-next-line
+  }, [isMobile, tooltip.visible]);
+
   return (
     <>
+      {isMobile
+        ? <MobileTooltip tooltip={tooltip} onClose={() => setTooltip(prev => ({ ...prev, visible: false }))} />
+        : <DesktopTooltip tooltip={tooltip} />
+      }
+
       <div
         style={{
-          position: 'fixed',
-          top: tooltip.y,
-          left: tooltip.x,
-          pointerEvents: 'none',
-          padding: '8px 12px',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          color: '#333',
-          borderRadius: '10px',
-          fontWeight: '500',
-          fontSize: '13px',
-          whiteSpace: 'nowrap',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          opacity: tooltip.visible ? 1 : 0,
-          transition: 'opacity 0.25s ease, transform 0.25s ease',
-          transform: tooltip.visible ? 'translate(0, 0)' : 'translate(-10px, -10px)',
-          zIndex: 10000,
-          userSelect: 'none',
-          pointerEvents: 'none',
+          width: '100vw',
+          height: '100vh',
+          position: 'absolute',
+          inset: 0,
+          zIndex: 0,
+          touchAction: 'none',
         }}
       >
-        {tooltip.content}
-      </div>
-
-      <div style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0, zIndex: 0 }}>
         <Canvas
           shadows
-          camera={{ position: [0, 10, 20], fov: 50 }}
-          gl={{ antialias: true }}
+          camera={{ position: [0, 10, 20], fov: isMobile ? 60 : 48 }}
+          gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
         >
           <color attach="background" args={['#FFF9ED']} />
-          <ambientLight intensity={0.8} />
+          <ambientLight intensity={0.81} />
           <directionalLight
             castShadow
             position={[10, 20, 10]}
-            intensity={0.7}
+            intensity={0.69}
             shadow-mapSize-width={1024}
             shadow-mapSize-height={1024}
             shadow-camera-far={50}
-            shadow-camera-left={-10}
-            shadow-camera-right={10}
-            shadow-camera-top={10}
-            shadow-camera-bottom={-10}
+            shadow-camera-left={-12}
+            shadow-camera-right={12}
+            shadow-camera-top={12}
+            shadow-camera-bottom={-12}
           />
-
           <PlanetCore />
-
-          {orbits.map((orbit, i) => (
+          {bubbles.map((bubble, i) => (
             <Bubble
-              key={bubbles[i].id}
-              orbit={orbit}
-              topic={bubbles[i]}
-              reflections={bubbles[i].reflections ?? 0}
-              userCount={bubbles[i].userCount ?? 0}
+              key={bubble.id}
+              idx={i}
+              topic={bubble}
+              reflections={bubble.reflections ?? 0}
+              userCount={bubble.userCount ?? 0}
+              positions={positions}
+              setPositions={setPositions}
+              orbitCenters={orbitCenters}
               onClick={handleBubbleClick}
               onHover={handleHover}
+              isMobile={isMobile}
             />
           ))}
-
           <OrbitControls
             enableRotate
             enableZoom={!isMobile}
@@ -204,7 +400,10 @@ const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
             minPolarAngle={0}
             maxPolarAngle={Math.PI}
             enableDamping
-            dampingFactor={0.1}
+            dampingFactor={0.13}
+            zoomSpeed={0.66}
+            panSpeed={0.48}
+            target={[0, 0, 0]}
           />
         </Canvas>
       </div>
