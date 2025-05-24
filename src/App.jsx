@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Profile from './pages/Profile';
-
+import XPToast from "./components/gamification/XPToast";
+import StreakToast from "./components/gamification/StreakToast";
+import AchievementToast from "./components/gamification/AchievementToast";
 import Header from './components/Header';
 import SplashScreen from './components/SplashScreen';
 import ThreeDCanvas from './components/ThreeDCanvas';
@@ -76,6 +78,9 @@ function MainApp() {
 function App() {
   return (
     <Router>
+      <XPToast />
+<StreakToast />
+<AchievementToast />
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/profile" element={<Profile />} />
