@@ -26,6 +26,7 @@ export const useGamificationStore = create(
       streakToast: null,
       achievementToast: null,
 
+      // Add XP and show XP toast (with level up check)
       addXP: (amount, reason = "") => {
         const oldXP = get().xp;
         const newXP = oldXP + amount;
@@ -36,9 +37,11 @@ export const useGamificationStore = create(
           level: newLevel,
           xpToast: { amount, reason, levelUp: newLevel > prevLevel }
         });
+        // Hide toast after 2s
         setTimeout(() => set({ xpToast: null }), 2000);
       },
 
+      // Check/Update streak
       checkStreak: () => {
         const today = todayISO();
         const last = get().lastActiveDay;
@@ -60,6 +63,7 @@ export const useGamificationStore = create(
         }
       },
 
+      // Add achievement and show toast
       addAchievement: (key, description) => {
         if (!get().achievements.find(a => a.key === key)) {
           set(state => ({
@@ -70,12 +74,16 @@ export const useGamificationStore = create(
         }
       },
 
+      // Reset all gamification
       resetGamification: () => set({
         xp: 0,
         level: 0,
         streak: 0,
         lastActiveDay: null,
-        achievements: []
+        achievements: [],
+        xpToast: null,
+        streakToast: null,
+        achievementToast: null,
       }),
     }),
     { name: "bt_gamification" }

@@ -1,5 +1,4 @@
 /** @type {import('tailwindcss').Config} */
-// Salva questo file come tailwind.config.js nella root del progetto (accanto a package.json)
 module.exports = {
   content: [
     "./index.html",
@@ -7,6 +6,13 @@ module.exports = {
   ],
   theme: {
     extend: {
+      transitionProperty: {
+        'all': 'all',
+      },
+      duration: {
+        '350': '350ms',
+      },
+      
       fontFamily: {
         elegant: ['Outfit', 'sans-serif'],
       },
@@ -21,6 +27,8 @@ module.exports = {
       animation: {
         'spin-smooth': 'spin-smooth 1s linear infinite',
         'fade-in': 'fade-in 0.2s ease-out forwards',
+        'fade-in-up': 'fade-in-up 0.6s cubic-bezier(.48,1.54,.53,0.95)',
+        'pop-in': 'pop-in 0.66s cubic-bezier(.45,1.8,.47,0.81)',
       },
       keyframes: {
         'spin-smooth': {
@@ -29,6 +37,15 @@ module.exports = {
         },
         'fade-in': {
           '0%': { opacity: 0, transform: 'scale(0.95)' },
+          '100%': { opacity: 1, transform: 'scale(1)' },
+        },
+        'fade-in-up': {
+          '0%': { opacity: 0, transform: 'translateY(20px) scale(0.95)' },
+          '100%': { opacity: 1, transform: 'translateY(0) scale(1)' },
+        },
+        'pop-in': {
+          '0%': { opacity: 0, transform: 'scale(0.5)' },
+          '80%': { opacity: 1, transform: 'scale(1.09)' },
           '100%': { opacity: 1, transform: 'scale(1)' },
         },
       },
