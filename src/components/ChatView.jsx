@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Paperclip,
@@ -11,9 +11,7 @@ import {
 } from 'lucide-react';
 import GiphySearch from './GiphySearch';
 
-// -------------------------------------------------------------------------
 // PALETTE & HELPERS
-// -------------------------------------------------------------------------
 const YELLOW_PALETTES = [
   'bg-yellow-50 text-yellow-900',
   'bg-yellow-100 text-yellow-900',
@@ -29,24 +27,88 @@ function getUserColor(id) {
   }
   return map[id];
 }
+function nextPowerOfTwo(x) {
+  return Math.pow(2, Math.ceil(Math.log2(x)));
+}
 
-// Genera un array di altezze per equalizzatore: se in riproduzione, oscillano, altrimenti fisse
-const genHeights = (seconds, animate = false) => {
-  const count = Math.max(1, Math.min(40, Math.round(seconds)));
-  if (!animate) return Array(count).fill(24);
-  // Se animato, genera valori oscillanti tra 16 e 32
-  return Array.from({ length: count }, (_, i) => 16 + Math.abs(Math.sin(Date.now() / 200 + i)) * 16);
-};
+// FFT REAL EQUALIZER
+function useAudioFFT(audioRef, active, barCount = 20) {
+  const [heights, setHeights] = useState(Array(barCount).fill(18));
+  const rafRef = useRef();
+  const ctxRef = useRef();
+  const srcRef = useRef();
+  const analyserRef = useRef();
 
-// Cerchio di caricamento cooldown
+  useEffect(() => {
+    if (!active || !audioRef.current) {
+      setHeights(Array(barCount).fill(18));
+      return;
+    }
+    ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    const src = ctxRef.current.createMediaElementSource(audioRef.current);
+    const analyser = ctxRef.current.createAnalyser();
+    analyser.fftSize = nextPowerOfTwo(Math.max(32, barCount * 2));
+    src.connect(analyser);
+    analyser.connect(ctxRef.current.destination);
+    srcRef.current = src;
+    analyserRef.current = analyser;
+    const freqArr = new Uint8Array(analyser.frequencyBinCount);
+
+    function draw() {
+      analyser.getByteFrequencyData(freqArr);
+      const bandSize = Math.floor(freqArr.length / barCount);
+      const bars = [];
+      for (let i = 0; i < barCount; ++i) {
+        let sum = 0;
+        for (let j = 0; j < bandSize; ++j) {
+          sum += freqArr[i * bandSize + j];
+        }
+        let avg = sum / bandSize;
+        bars.push(10 + (avg / 255) * 28);
+      }
+      setHeights(bars);
+      rafRef.current = requestAnimationFrame(draw);
+    }
+    draw();
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      try { src.disconnect(); } catch {}
+      try { analyser.disconnect(); } catch {}
+      try { ctxRef.current.close(); } catch {}
+    };
+  }, [audioRef, active, barCount]);
+
+  return heights;
+}
+
+// FAKE REC EQUALIZER
+function useFakeRecEq(barCount, active) {
+  const [heights, setHeights] = useState(Array(barCount).fill(18));
+  useEffect(() => {
+    if (!active) return;
+    let running = true;
+    function animate() {
+      setHeights(
+        Array.from({ length: barCount }, (_, i) =>
+          14 + Math.round(
+            12 * Math.abs(Math.sin(Date.now() / 210 + i * 0.45 + (i % 4)))
+          )
+        )
+      );
+      if (running) requestAnimationFrame(animate);
+    }
+    animate();
+    return () => { running = false; };
+  }, [barCount, active]);
+  return heights;
+}
+
+// COOLDOWN
 function CooldownCircle({ cd, maxCd }) {
   return (
     <div className="relative w-8 h-8 flex items-center justify-center text-yellow-600">
-      <svg
-        className="animate-spin-reverse"
-        viewBox="0 0 36 36"
-        style={{ width: 36, height: 36 }}
-      >
+      <svg className="animate-spin-reverse" viewBox="0 0 36 36" style={{ width: 36, height: 36 }}>
         <path
           stroke="currentColor"
           strokeWidth="3"
@@ -59,6 +121,15 @@ function CooldownCircle({ cd, maxCd }) {
       </svg>
     </div>
   );
+}
+
+// BUBBLE VOCALI: LUNGHEZZA PROPORZIONALE
+function getBubbleWidth(duration, min=110, max=380) {
+  const seconds = Math.max(1, Math.min(duration || 1, 40));
+  return `${min + ((max - min) * (seconds - 1) / 39)}px`;
+}
+function getBarCount(widthPx) {
+  return Math.max(10, Math.min(36, Math.floor(parseInt(widthPx) / 8)));
 }
 
 export default function ChatView() {
@@ -75,7 +146,7 @@ export default function ChatView() {
     return id;
   });
 
-  // messaggi
+  // Messaggi & stato preview
   const [messages, setMessages] = useState([
     { id: 1, type: 'text', content: `Welcome to the "${topic}" bubble!`, user: 'sys' }
   ]);
@@ -85,7 +156,7 @@ export default function ChatView() {
   const [showGiphy, setShowGiphy] = useState(false);
   const fileRef = useRef(null);
 
-  // audio playback & recording
+  // AUDIO PLAYBACK & REC
   const [playingId, setPlayingId] = useState(null);
   const audioRef = useRef(null);
   const [recording, setRecording] = useState(false);
@@ -93,20 +164,34 @@ export default function ChatView() {
   const [recTime, setRecTime] = useState(0);
   const recTimerRef = useRef(null);
   const [showRecConfirm, setShowRecConfirm] = useState(false);
+  const [recAudioBlob, setRecAudioBlob] = useState(null);
   const [cancelBySwipe, setCancelBySwipe] = useState(false);
   const recordBtnRef = useRef(null);
 
-  // cooldown
+  // DRAG REC
+  const [recDrag, setRecDrag] = useState(false);
+  const [recDragDir, setRecDragDir] = useState(null);
+
+  // COOLDOWN
   const [cd, setCd] = useState(0);
   const cdRef = useRef(null);
-  // warning on attempt
   const [showWarning, setShowWarning] = useState(false);
 
-  // scroll on new msg
   useEffect(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
-  useEffect(() => () => mediaRef.current?.stream.getTracks().forEach(t => t.stop()), []);
+  useEffect(() => () => mediaRef.current?.stream?.getTracks().forEach(t => t.stop()), []);
 
-  // cooldown helpers
+  // Responsive: aggiorna a ogni frame
+  const bubbleWidth = getBubbleWidth(recTime);
+  const recBarCount = getBarCount(bubbleWidth);
+  const recEqualizerHeights = useFakeRecEq(recBarCount, recording);
+
+  const playingMsg = useMemo(
+    () => messages.find(m => m.id === playingId && m.type === 'audio'),
+    [messages, playingId]
+  );
+  const playbackBarCount = playingMsg ? getBarCount(getBubbleWidth(playingMsg.duration)) : 20;
+  const playbackEqualizerHeights = useAudioFFT(audioRef, !!playingMsg, playbackBarCount);
+
   const calcCd = cnt => {
     const MIN = 1500, MAX = 5000;
     return Math.max(MIN, Math.min(MAX, MAX - (cnt / 50) * (MAX - MIN)));
@@ -120,7 +205,6 @@ export default function ChatView() {
     );
   };
 
-  // invio con warning
   const attemptSend = () => {
     if (cd > 0) {
       setShowWarning(true);
@@ -132,8 +216,15 @@ export default function ChatView() {
     setInput('');
   };
 
-  // invia msg
   const sendMessage = msg => {
+    let heights = [];
+    let barCount = 0;
+    let width = undefined;
+    if (msg.type === 'audio') {
+      width = getBubbleWidth(msg.duration || 1);
+      barCount = getBarCount(width);
+      heights = Array.from({ length: barCount }, () => 18);
+    }
     setMessages(m => [
       ...m,
       {
@@ -141,18 +232,13 @@ export default function ChatView() {
         ...msg,
         user: uid,
         ...(msg.type === 'audio'
-          ? {
-              duration: msg.duration,
-              barCount: Math.max(5, Math.ceil(msg.duration * 5)),
-              heights: genHeights(Math.max(5, Math.ceil(msg.duration * 5)))
-            }
+          ? { duration: msg.duration, barCount, heights, width }
           : {})
       }
     ]);
     startCd(calcCd(messages.length + 1));
   };
 
-  // file / preview
   const onFile = e => {
     const f = e.target.files[0];
     if (!f) return;
@@ -167,10 +253,13 @@ export default function ChatView() {
     r.readAsDataURL(f);
   };
 
-  // registra stile WhatsApp
   const startRecording = async () => {
     if (recording) return;
     setCancelBySwipe(false);
+    setRecDrag(false);
+    setRecDragDir(null);
+    setRecTime(0);
+    setRecAudioBlob(null);
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mr = new MediaRecorder(stream);
     let chunks = [];
@@ -178,9 +267,8 @@ export default function ChatView() {
     mr.onstop = () => {
       if (!cancelBySwipe) {
         const blob = new Blob(chunks, { type: 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        setShowRecConfirm(false);
-        sendMessage({ type: 'audio', content: url, duration: recTime });
+        setRecAudioBlob(blob);
+        setShowRecConfirm(true);
       }
     };
     mr.start();
@@ -192,6 +280,7 @@ export default function ChatView() {
         if (t + 1 >= 40) {
           clearInterval(recTimerRef.current);
           mr.stop();
+          setRecording(false);
           setShowRecConfirm(true);
           return 40;
         }
@@ -208,65 +297,84 @@ export default function ChatView() {
     }
   };
 
-  // Cancella vocale in corso
   const cancelRecording = () => {
     setCancelBySwipe(true);
+    setRecording(false);
     stopRecording();
     setRecTime(0);
     setShowRecConfirm(false);
+    setRecDrag(false);
+    setRecDragDir(null);
+    setRecAudioBlob(null);
   };
 
-  // Eventi per il pulsante stile WhatsApp
-  const handleRecordMouseDown = e => {
+  // HOLD-to-record + swipe-to-cancel
+  const recordPointerStart = e => {
     e.preventDefault();
+    setRecDrag(false);
+    setRecDragDir(null);
     startRecording();
-    window.addEventListener('mousemove', handleRecordMouseMove);
-    window.addEventListener('mouseup', handleRecordMouseUp);
+    window.addEventListener('pointermove', recordPointerMove);
+    window.addEventListener('pointerup', recordPointerEnd);
   };
-  const handleRecordMouseUp = e => {
-    window.removeEventListener('mousemove', handleRecordMouseMove);
-    window.removeEventListener('mouseup', handleRecordMouseUp);
-    if (!cancelBySwipe) stopRecording();
-  };
-  const handleRecordMouseMove = e => {
-    if (!recordBtnRef.current) return;
+  const recordPointerMove = e => {
+    if (!recordBtnRef.current || !recording) return;
+    setRecDrag(true);
     const rect = recordBtnRef.current.getBoundingClientRect();
-    if (e.clientX < rect.left - 40) {
-      setCancelBySwipe(true);
+    const dx = e.clientX - (rect.left + rect.width / 2);
+    const dy = e.clientY - (rect.top + rect.height / 2);
+    if (dx < -80) {
+      setRecDragDir('left');
       cancelRecording();
+      window.removeEventListener('pointermove', recordPointerMove);
+      window.removeEventListener('pointerup', recordPointerEnd);
+    } else if (dy < -60) {
+      setRecDragDir('up');
+      cancelRecording();
+      window.removeEventListener('pointermove', recordPointerMove);
+      window.removeEventListener('pointerup', recordPointerEnd);
+    } else {
+      setRecDragDir(null);
     }
   };
-  // Touch events
-  const handleRecordTouchStart = e => {
-    startRecording();
-    window.addEventListener('touchmove', handleRecordTouchMove);
-    window.addEventListener('touchend', handleRecordTouchEnd);
-  };
-  const handleRecordTouchEnd = e => {
-    window.removeEventListener('touchmove', handleRecordTouchMove);
-    window.removeEventListener('touchend', handleRecordTouchEnd);
-    if (!cancelBySwipe) stopRecording();
-  };
-  const handleRecordTouchMove = e => {
-    if (!recordBtnRef.current) return;
-    const rect = recordBtnRef.current.getBoundingClientRect();
-    const touch = e.touches[0];
-    if (touch.clientX < rect.left - 40) {
-      setCancelBySwipe(true);
-      cancelRecording();
-    }
+  const recordPointerEnd = e => {
+    window.removeEventListener('pointermove', recordPointerMove);
+    window.removeEventListener('pointerup', recordPointerEnd);
+    if (!cancelBySwipe && recording) stopRecording();
+    setRecDrag(false);
+    setRecDragDir(null);
   };
 
-  // play / pause
+  const sendRecPreview = () => {
+    if (recAudioBlob) {
+      const url = URL.createObjectURL(recAudioBlob);
+      sendMessage({
+        type: 'audio',
+        content: url,
+        duration: recTime
+      });
+    }
+    setShowRecConfirm(false);
+    setRecAudioBlob(null);
+    setRecTime(0);
+  };
+
   const togglePlay = id => {
     if (playingId === id) {
-      audioRef.current.pause();
+      if (audioRef.current) audioRef.current.pause();
       setPlayingId(null);
     } else {
       setPlayingId(id);
-      setTimeout(() => audioRef.current.play(), 0);
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.currentTime = 0;
+          audioRef.current.play().catch(() => {});
+        }
+      }, 0);
     }
   };
+
+  const formatSec = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
   return (
     <div className="flex flex-col h-screen bg-[#FFF9ED] font-elegant">
@@ -289,7 +397,18 @@ export default function ChatView() {
             : msg.type === 'text'
             ? 'w-fit px-4 py-2 self-start ' + bubbleColor
             : 'w-fit self-start ' + bubbleColor;
-
+          let heights = [];
+          let width = undefined;
+          if (isAudio) {
+            width = msg.width || getBubbleWidth(msg.duration);
+            if (msg.id === playingId) {
+              heights = playbackEqualizerHeights;
+            } else if (msg.heights && msg.heights.length > 0) {
+              heights = msg.heights;
+            } else {
+              heights = Array(msg.barCount || 20).fill(18);
+            }
+          }
           return (
             <div key={msg.id} className={`${wrapperCls} rounded-2xl shadow animate-fade-in`}>
               {msg.type === 'text' && <span>{msg.content}</span>}
@@ -302,38 +421,47 @@ export default function ChatView() {
                 </video>
               )}
               {isAudio && (
-                <>
-                  <button onClick={() => togglePlay(msg.id)} className="p-2 bg-white rounded-full">
+                <div
+                  className="flex items-center gap-2"
+                  style={{
+                    width: width,
+                    maxWidth: '94vw',
+                    minWidth: '110px'
+                  }}
+                >
+                  <button
+                    onClick={() => togglePlay(msg.id)}
+                    className="p-2 bg-white rounded-full flex-shrink-0"
+                    style={{ minWidth: 40, minHeight: 40 }}
+                  >
                     {playingId === msg.id ? (
-                      <Pause size={20} className="text-yellow-600" />
+                      <Pause size={22} className="text-yellow-600" />
                     ) : (
-                      <Play size={20} className="text-yellow-600" />
+                      <Play size={22} className="text-yellow-600" />
                     )}
                   </button>
                   {playingId === msg.id && (
                     <audio ref={audioRef} src={msg.content} onEnded={() => setPlayingId(null)} />
                   )}
-                  <div className="flex flex-1 space-x-0.5 items-end h-8">
-                    {(playingId === msg.id
-                      ? genHeights(msg.heights.length, true)
-                      : msg.heights
-                    ).map((h, i) => (
+                  <div className="flex flex-row items-end h-8 flex-1 overflow-hidden px-1">
+                    {heights.slice(0, getBarCount(width)).map((h, i) => (
                       <div
                         key={i}
-                        className="bg-yellow-600 rounded-b"
+                        className="bg-yellow-600 rounded-t"
                         style={{
-                          width: '3px',
+                          width: 3,
+                          marginRight: 1,
                           height: `${h}px`,
-                          animation:
-                            playingId === msg.id
-                              ? `wave 0.8s ease-in-out infinite alternate`
-                              : 'none',
-                          animationDelay: `${(i * 0.08).toFixed(2)}s`
+                          minHeight: '4px',
+                          maxHeight: '32px'
                         }}
                       />
                     ))}
                   </div>
-                </>
+                  <span className="ml-1 text-xs font-medium text-yellow-900 flex-shrink-0">
+                    {msg.duration ? formatSec(msg.duration) : ''}
+                  </span>
+                </div>
               )}
             </div>
           );
@@ -341,8 +469,98 @@ export default function ChatView() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Preview */}
-      {preview && (
+      {/* Barra di registrazione vocale (solo timer + equalizer, proporzionale) */}
+      {(recording && !showRecConfirm) && (
+        <div className="fixed left-0 right-0 bottom-20 flex justify-center pointer-events-none z-30">
+          <div
+            className="flex items-center bg-yellow-100 shadow px-3 py-3 rounded-2xl border border-yellow-300 animate-fade-in pointer-events-auto w-full"
+            style={{
+              width: bubbleWidth,
+              maxWidth: '94vw',
+              minWidth: '110px'
+            }}
+          >
+            <span className="text-yellow-900 font-semibold mr-2 min-w-[36px]">{formatSec(recTime)}</span>
+            <div className="flex flex-row items-end h-8 flex-1 overflow-hidden px-1 mr-2">
+              {recEqualizerHeights.slice(0, recBarCount).map((h, i) => (
+                <div
+                  key={i}
+                  className="bg-yellow-600 rounded-t"
+                  style={{
+                    width: 3,
+                    marginRight: 1,
+                    height: `${h}px`,
+                    minHeight: '4px',
+                    maxHeight: '32px'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Conferma invio/cancella vocale */}
+      {showRecConfirm && recAudioBlob && (
+        <div className="fixed left-0 right-0 bottom-20 flex justify-center z-30 animate-fade-in">
+          <div
+            className="flex items-center bg-yellow-100 border border-yellow-200 shadow rounded-2xl px-4 py-2 w-full"
+            style={{
+              width: bubbleWidth,
+              maxWidth: '90vw',
+              minWidth: 150,
+              boxShadow: '0 1.5px 6px 0 rgba(210,180,60,0.10)'
+            }}
+          >
+            <button
+              onClick={() => { setShowRecConfirm(false); setRecAudioBlob(null); }}
+              className="flex items-center justify-center rounded-full border border-red-200 mr-4"
+              style={{
+                width: 34,
+                height: 34,
+                background: '#fff',
+              }}
+            >
+              <X size={17} className="text-red-400" />
+            </button>
+            <span
+              className="text-[#ae8b1c] font-medium text-base select-none"
+              style={{
+                minWidth: 38,
+                textAlign: 'center',
+                letterSpacing: '0px',
+                fontWeight: 500,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {formatSec(recTime)}
+            </span>
+            <div className="flex-1" />
+            <button
+              onClick={cd > 0 ? () => setShowWarning(true) : sendRecPreview}
+              disabled={cd > 0}
+              className={`flex items-center justify-center rounded-full shadow
+                ${cd > 0 ? 'opacity-40 pointer-events-none' : ''}
+              `}
+              style={{
+                background: 'linear-gradient(135deg,#e6b100,#ffd34d)',
+                width: 36,
+                height: 36,
+                marginLeft: 22,
+                boxShadow: '0 2px 6px 0 rgba(220,180,40,0.10)',
+                transition: 'box-shadow 0.14s'
+              }}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 11 17 4 10" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Preview immagini/video normali */}
+      {preview && previewType && previewType !== 'audio' && (
         <div className="flex items-center space-x-3 p-4 bg-white shadow">
           {previewType === 'image' ? (
             <img src={preview} alt="preview" className="w-20 rounded-xl" />
@@ -399,45 +617,29 @@ export default function ChatView() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && attemptSend()}
+            disabled={recording}
           />
-          <button onClick={attemptSend} className="text-yellow-600">
-            <Send />
-          </button>
+          {cd > 0 ? (
+            <div className="w-6 h-6 flex items-center justify-center">
+              <CooldownCircle cd={cd} maxCd={5000} />
+            </div>
+          ) : (
+            <button onClick={attemptSend} className="text-yellow-600" disabled={recording}>
+              <Send />
+            </button>
+          )}
           <button
             ref={recordBtnRef}
-            onMouseDown={handleRecordMouseDown}
-            onTouchStart={handleRecordTouchStart}
+            onPointerDown={recordPointerStart}
             className={`p-2 rounded-full transition select-none ${
               recording ? (cancelBySwipe ? 'bg-red-400 text-white' : 'bg-yellow-600 text-white') : 'text-gray-500 hover:text-yellow-600'
-            }`}
-            disabled={showRecConfirm}
-            style={{ userSelect: 'none' }}
+            } ${cd > 0 ? 'opacity-50 pointer-events-none' : ''}`}
+            disabled={recording || showRecConfirm || cd > 0}
+            style={{ userSelect: 'none', touchAction: 'none' }}
           >
             <Mic />
           </button>
-          {recording && !showRecConfirm && (
-            <span className={`ml-2 text-sm ${cancelBySwipe ? 'text-red-600' : 'text-yellow-800'} animate-pulse`}>
-              {cancelBySwipe ? 'Trascina per annullare' : `● ${recTime}s`}
-            </span>
-          )}
         </div>
-        {showRecConfirm && (
-          <div className="flex items-center justify-center gap-4 mt-4">
-            <span className="text-yellow-700 font-semibold">Vocale massimo raggiunto (40s)</span>
-            <button
-              onClick={stopRecording}
-              className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition"
-            >
-              Invia
-            </button>
-            <button
-              onClick={cancelRecording}
-              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
-            >
-              Cancella
-            </button>
-          </div>
-        )}
         {showGiphy && (
           <div className="mt-2">
             <GiphySearch

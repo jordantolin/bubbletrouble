@@ -1,5 +1,13 @@
 /* Custom Animations */
 @keyframes wave {
+  0% { height: 16px; }
+  25% { height: 28px; }
+  50% { height: 20px; }
+  75% { height: 30px; }
+  100% { height: 16px; }
+}
+
+@keyframes wave {
   0%, 100% { transform: scaleY(0.5); }
   50%      { transform: scaleY(1); }
 }

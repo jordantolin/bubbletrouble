@@ -58,22 +58,18 @@ const Header = ({ searchText, onSearchChange }) => {
   return (
     <header className="fixed top-0 left-0 w-full z-[9999] px-4 pt-3 pb-2 bg-[#FFF9ED] bg-opacity-80 backdrop-blur-xl shadow-xl rounded-b-[32px] select-none">
       <div className="flex items-center justify-between">
-        {/* Logo + Title */}
+        {/* SOLO LOGO (no scritta!) */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <img src={logo} alt="Bubble Trouble Logo" className="h-8 w-auto rounded-full" />
-          <h1
-            className="text-xl font-semibold font-elegant tracking-tight whitespace-nowrap"
-            style={{
-              color: '#FFD90A',
-              textShadow: '0 0 1px rgba(255, 217, 10, 0.4)',
-            }}
-          >
-            Bubble Trouble
-          </h1>
+          <img
+            src={logo}
+            alt="Bubble Trouble Logo"
+            className="h-10 w-10 rounded-full shadow-lg"
+            style={{ objectFit: 'cover' }}
+          />
         </div>
 
         {/* Search bar controlled con animazione smooth */}
-        <div className="flex-grow mx-4 max-w-[40vw]">
+        <div className="flex-grow mx-4">
           <div className="flex items-center gap-2 px-4 py-2 bg-white/70 backdrop-blur-lg rounded-full shadow-inner transition-all duration-500 ease-in-out">
             <Search className="text-[#8E8E93]" size={18} />
             <input
