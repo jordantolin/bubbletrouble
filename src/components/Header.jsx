@@ -1,19 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, User, Search } from 'lucide-react';
 import logo from '/public/logobubbletrouble.png';
+import { useNavigate } from 'react-router-dom';
+import { useGamificationStore } from '../stores/useGamificationStore';
 
 const Header = ({ searchText, onSearchChange }) => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  // --- Notifiche ora hanno un tipo per la gamification:
   const [notifications, setNotifications] = useState([
-    { id: 1, icon: '💬', text: 'New bubble reflection', read: false, visible: true },
-    { id: 2, icon: '🎲', text: 'New game event starting soon', read: false, visible: true },
-    { id: 3, icon: '⭐️', text: 'Achievement unlocked!', read: false, visible: true },
+    { id: 1, icon: '💬', text: 'New bubble reflection', read: false, visible: true, type: 'xp', amount: 20, reason: "Bubble reflected" },
+    { id: 2, icon: '🔥', text: 'Streak +1! Daily access.', read: false, visible: true, type: 'streak', count: 1 },
+    { id: 3, icon: '⭐️', text: 'Achievement unlocked!', read: false, visible: true, type: 'achievement', key: "reflection", description: "First Reflection" },
+    { id: 4, icon: '🎲', text: 'New game event starting soon', read: false, visible: true }
   ]);
 
   const userMenuRef = useRef(null);
   const notificationsRef = useRef(null);
+  const navigate = useNavigate();
+
+  // Gamification hooks
+  const showXPToast = useGamificationStore((s) => s.showXPToast);
+  const showStreakToast = useGamificationStore((s) => s.showStreakToast);
+  const showAchievementToast = useGamificationStore((s) => s.showAchievementToast);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -34,7 +44,19 @@ const Header = ({ searchText, onSearchChange }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // --- ON CLICK NOTIFICATION: trigger gamification
   const onNotificationClick = (id) => {
+    const notif = notifications.find(n => n.id === id);
+
+    // Trigger gamification if type
+    if (notif.type === 'xp') {
+      showXPToast(notif.amount, notif.reason);
+    } else if (notif.type === 'streak') {
+      showStreakToast(notif.count);
+    } else if (notif.type === 'achievement') {
+      showAchievementToast(notif.key, notif.description);
+      setTimeout(() => navigate('/profile#achievements'), 400); // piccolo delay
+    }
     setNotifications((prev) =>
       prev.map((n) =>
         n.id === id
@@ -51,6 +73,12 @@ const Header = ({ searchText, onSearchChange }) => {
         )
       );
     }, 300);
+  };
+
+  // --- CLICK SUL PROFILO porta a /profile
+  const onProfileClick = () => {
+    setUserMenuOpen(false);
+    navigate('/profile');
   };
 
   const unreadCount = notifications.filter(n => !n.read && n.visible).length;
@@ -154,7 +182,12 @@ const Header = ({ searchText, onSearchChange }) => {
                 style={{ animation: 'fadeIn 0.3s ease forwards' }}
               >
                 <ul className="text-sm text-gray-700">
-                  <li className="px-4 py-2 hover:bg-yellow-50 cursor-pointer">Profile</li>
+                  <li
+                    className="px-4 py-2 hover:bg-yellow-50 cursor-pointer"
+                    onClick={onProfileClick}
+                  >
+                    Profile
+                  </li>
                   <li className="px-4 py-2 hover:bg-yellow-50 cursor-pointer">Settings</li>
                   <li className="px-4 py-2 hover:bg-yellow-100 cursor-pointer text-red-500 font-semibold">Logout</li>
                 </ul>

@@ -74,6 +74,20 @@ export const useGamificationStore = create(
         }
       },
 
+      // --- AGGIUNTA: Trigger manuale toast per notifiche
+      showXPToast: (amount, reason = "") => {
+        set({ xpToast: { amount, reason } });
+        setTimeout(() => set({ xpToast: null }), 2000);
+      },
+      showStreakToast: (count = null) => {
+        set({ streakToast: { count } });
+        setTimeout(() => set({ streakToast: null }), 1800);
+      },
+      showAchievementToast: (key, description) => {
+        set({ achievementToast: { key, description } });
+        setTimeout(() => set({ achievementToast: null }), 2500);
+      },
+
       // Reset all gamification
       resetGamification: () => set({
         xp: 0,

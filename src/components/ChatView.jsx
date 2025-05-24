@@ -600,7 +600,7 @@ export default function ChatView() {
         {showWarning && (
           <div className="absolute inset-x-0 -top-6 flex justify-center pointer-events-none">
             <div className="bg-gray-100 text-gray-700 text-sm px-3 py-1 rounded-lg shadow-sm">
-              ⏳ Riprova tra poco
+              ⏳ Daddy chill
             </div>
           </div>
         )}

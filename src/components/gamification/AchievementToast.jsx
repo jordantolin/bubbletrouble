@@ -1,33 +1,36 @@
-import React, { useEffect, useState } from "react";
-import { useGamificationStore } from "../../stores/useGamificationStore";
+import React from "react";
+import { X } from "lucide-react";
 
-export default function AchievementToast() {
-  const toast = useGamificationStore((s) => s.achievementToast);
-  const [show, setShow] = useState(false);
-
-  useEffect(() => {
-    if (toast) {
-      setShow(true);
-      const hideTimer = setTimeout(() => setShow(false), 2000);
-      return () => clearTimeout(hideTimer);
-    }
-    setShow(false);
-  }, [toast]);
-
-  if (!toast && !show) return null;
-
+export default function AchievementToast({ description, onClose }) {
   return (
     <div
-      className={`
-        fixed left-1/2 top-40 z-50 -translate-x-1/2
-        px-6 py-3 rounded-2xl shadow-2xl bg-yellow-200/95 text-yellow-900 font-bold text-lg
+      className="
+        fixed top-40 left-1/2 z-40 -translate-x-1/2
+        bg-gradient-to-br from-yellow-50 to-yellow-100
+        border border-yellow-300 shadow-xl
+        rounded-2xl px-7 py-3
+        flex flex-row items-center gap-3
+        animate-pop-in
+        min-w-[260px] max-w-[98vw]
         transition-all duration-350
-        ${show ? "opacity-100 translate-y-0 scale-100 pointer-events-auto" : "opacity-0 -translate-y-4 scale-95 pointer-events-none"}
-      `}
-      style={{ boxShadow: "0 8px 30px 0 #ffd60033", minWidth: 200 }}
+        pointer-events-auto
+      "
+      style={{
+        boxShadow: "0 5px 32px 0 #ffe47a42, 0 1.5px 10px #f5e9b7c9"
+      }}
     >
-      🏆 Achievement unlocked!
-      <span className="ml-2 text-base font-medium text-yellow-800">{toast?.description || toast?.key}</span>
+      <div className="flex flex-col gap-0 flex-1">
+        <span className="flex items-center text-amber-700 font-bold text-xl">
+          <span className="text-2xl mr-1" role="img" aria-label="star">⭐️</span>
+          <span>Achievement unlocked!</span>
+        </span>
+        {description && (
+          <span className="text-yellow-700 mt-1 font-medium text-base">{description}</span>
+        )}
+      </div>
+      <button onClick={onClose} className="ml-2 text-yellow-400 hover:text-yellow-600 rounded-full p-1 transition">
+        <X size={19} />
+      </button>
     </div>
   );
 }

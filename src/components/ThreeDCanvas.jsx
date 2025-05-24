@@ -5,7 +5,6 @@ import { OrbitControls, Html } from '@react-three/drei';
 import { useNavigate } from 'react-router-dom';
 import { useSpring, animated } from '@react-spring/three';
 import { Sparkles } from 'lucide-react';
-import { useGamificationStore } from "../stores/useGamificationStore"; // Gamification
 
 const AnimatedGroup = animated.group;
 
@@ -102,7 +101,7 @@ const Bubble = ({
 
   const handleEnter = (e) => {
     setHovered(true);
-    onHover(e, topic, safeReflections, safeUserCount, ref.current);
+    onHover(e, topic, safeReflections, safeUserCount);
     if (!isMobile) document.body.style.cursor = 'pointer';
   };
   const handleLeave = (e) => {
@@ -196,41 +195,6 @@ const PlanetCore = () => (
   </mesh>
 );
 
-const MobileTooltip = ({ tooltip, onClose }) => (
-  <div
-    style={{
-      position: 'fixed',
-      left: 0,
-      bottom: 0,
-      width: '100vw',
-      minHeight: 80,
-      background: 'rgba(255, 250, 224, 0.98)',
-      color: '#333',
-      fontWeight: 600,
-      fontSize: 17,
-      borderTop: '2px solid #ffd600',
-      borderRadius: '22px 22px 0 0',
-      zIndex: 10000,
-      boxShadow: '0 -6px 32px 0 rgba(255,200,32,0.11)',
-      padding: 18,
-      transition: 'transform 0.22s cubic-bezier(.51,.26,.45,1.33)',
-      transform: tooltip.visible ? 'translateY(0)' : 'translateY(100%)',
-      pointerEvents: tooltip.visible ? 'auto' : 'none',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: 8,
-    }}
-    onClick={onClose}
-  >
-    <span style={{ fontSize: 22, color: "#FFD600" }}><Sparkles size={20} /></span>
-    {tooltip.content}
-    <span style={{ fontSize: 13, marginTop: 2, color: '#888', fontWeight: 400 }}>
-      Tap anywhere to close
-    </span>
-  </div>
-);
-
 const DesktopTooltip = ({ tooltip }) => (
   <div
     style={{
@@ -238,43 +202,138 @@ const DesktopTooltip = ({ tooltip }) => (
       top: tooltip.y,
       left: tooltip.x,
       pointerEvents: 'none',
-      padding: '13px 20px',
+      minWidth: 240,
       background: 'rgba(255, 250, 224, 0.98)',
       color: '#333',
-      borderRadius: '18px',
+      borderRadius: '24px',
       fontWeight: 500,
       fontSize: '16px',
-      whiteSpace: 'nowrap',
-      boxShadow: '0 4px 28px rgba(255,200,32,0.18), 0 2px 5px #ffd60033',
+      boxShadow: '0 4px 32px 2px #ffeab999',
       opacity: tooltip.visible ? 1 : 0,
-      transition: 'opacity 0.22s, transform 0.22s cubic-bezier(.51,.26,.45,1.33)',
-      transform: tooltip.visible ? 'translate(0,0)' : 'translate(-14px,-14px)',
+      transition: 'opacity 0.18s, transform 0.18s cubic-bezier(.51,.26,.45,1.33)',
+      transform: tooltip.visible ? 'translate(0,0)' : 'translate(-10px,-12px)',
       zIndex: 10000,
       userSelect: 'none',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
-      gap: 14,
+      padding: '28px 28px 18px 28px',
+      gap: 10,
+      textAlign: 'center',
     }}
   >
-    <span style={{ fontSize: 20, color: "#FFD600" }}><Sparkles size={20} /></span>
-    {tooltip.content}
+    {/* Nome bolla centrale */}
+    <div style={{
+      fontWeight: 700,
+      color: '#bc9400',
+      marginBottom: 10,
+      fontSize: 22,
+      letterSpacing: 0.01,
+      lineHeight: 1.11,
+      width: '100%',
+      textAlign: 'center',
+      textShadow: '0 2px 12px #fff3',
+      filter: 'drop-shadow(0 1.5px 2.5px #fff7)'
+    }}>
+      {tooltip.topicTitle}
+    </div>
+    {/* Reflections */}
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      fontSize: 19,
+      color: "#888",
+      marginBottom: 4,
+    }}>
+      <span style={{ color: "#FFD600", fontSize: 22 }} role="img" aria-label="sparkles">✨</span>
+      <span style={{ fontWeight: 700, color: "#535353", minWidth: 24 }}>{tooltip.reflections}</span>
+      <span style={{ marginLeft: 2, fontWeight: 500 }}>reflections</span>
+    </div>
+    {/* Users */}
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      fontSize: 19,
+      color: "#888",
+    }}>
+      <span style={{ color: "#86a1b8", fontSize: 22 }} role="img" aria-label="users">👥</span>
+      <span style={{ fontWeight: 700, color: "#535353", minWidth: 24 }}>{tooltip.userCount}</span>
+      <span style={{ marginLeft: 2, fontWeight: 500 }}>users</span>
+    </div>
+  </div>
+);
+
+const MobileTooltip = ({ tooltip, onClose }) => (
+  <div
+    style={{
+      position: 'fixed',
+      left: 0,
+      bottom: 0,
+      width: '100vw',
+      minHeight: 90,
+      background: 'rgba(255, 250, 224, 0.98)',
+      color: '#333',
+      fontWeight: 600,
+      fontSize: 19,
+      borderTop: '2.2px solid #ffd600',
+      borderRadius: '22px 22px 0 0',
+      zIndex: 10000,
+      boxShadow: '0 -7px 36px 0 rgba(255,200,32,0.12)',
+      padding: 24,
+      transition: 'transform 0.19s cubic-bezier(.51,.26,.45,1.33)',
+      transform: tooltip.visible ? 'translateY(0)' : 'translateY(100%)',
+      pointerEvents: tooltip.visible ? 'auto' : 'none',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 9,
+      textAlign: 'center',
+    }}
+    onClick={onClose}
+  >
+    <div style={{
+      fontWeight: 700,
+      color: '#bc9400',
+      fontSize: 21,
+      marginBottom: 10,
+      letterSpacing: 0.01,
+      width: '100%',
+      textAlign: 'center',
+      textShadow: '0 1.5px 6px #fff2',
+      filter: 'drop-shadow(0 1.5px 2.5px #fff7)'
+    }}>
+      {tooltip.topicTitle}
+    </div>
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      gap: 10, fontSize: 18, color: "#888", marginBottom: 4,
+    }}>
+      <span style={{ color: "#FFD600", fontSize: 21 }} role="img" aria-label="sparkles">✨</span>
+      <span style={{ fontWeight: 700, color: "#535353", minWidth: 24 }}>{tooltip.reflections}</span>
+      <span style={{ marginLeft: 2, fontWeight: 500 }}>reflections</span>
+    </div>
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      gap: 10, fontSize: 18, color: "#888",
+    }}>
+      <span style={{ color: "#86a1b8", fontSize: 21 }} role="img" aria-label="users">👥</span>
+      <span style={{ fontWeight: 700, color: "#535353", minWidth: 24 }}>{tooltip.userCount}</span>
+      <span style={{ marginLeft: 2, fontWeight: 500 }}>users</span>
+    </div>
+    <span style={{ fontSize: 13, marginTop: 2, color: '#aaa', fontWeight: 400 }}>
+      Tap anywhere to close
+    </span>
   </div>
 );
 
 const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
   const [isMobile, setIsMobile] = useState(false);
-  const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, content: '' });
+  const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, topicTitle: '', reflections: 0, userCount: 0 });
   const navigate = useNavigate();
-
-  // -- GAMIFICATION: XP e Streak per join bolla
-  const handleBubbleClick = (topic) => {
-    // XP e streak
-    useGamificationStore.getState().addXP(10, "Joined a bubble!");
-    useGamificationStore.getState().checkStreak();
-
-    if (onBubbleClick) onBubbleClick(topic);
-    else navigate(`/chat/${encodeURIComponent(topic.title)}`);
-  };
 
   useEffect(() => {
     setIsMobile(window.innerWidth < 768);
@@ -307,6 +366,12 @@ const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
     }))
   );
 
+  const handleBubbleClick = (topic) => {
+    if (onBubbleClick) onBubbleClick(topic);
+    else navigate(`/chat/${encodeURIComponent(topic.title)}`);
+  };
+
+  // PATCH: Fixato! Numero corretti in tooltip!
   const handleHover = (e, topic, reflections, userCount) => {
     if (e && topic) {
       setTooltip({
@@ -315,17 +380,9 @@ const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
           ? { x: 0, y: 0 }
           : { x: e.clientX + 12, y: e.clientY + 8 }
         ),
-        content: (
-          <div style={{ lineHeight: 1.55 }}>
-            <div style={{ fontWeight: 700, color: LABEL_COLOR, marginBottom: 2 }}>{topic.title}</div>
-            <div>
-              <span style={{ color: "#FFD600" }}>✨</span> <b>{reflections}</b> reflections
-            </div>
-            <div>
-              <span style={{ color: "#FFD600" }}>👥</span> <b>{userCount}</b> users
-            </div>
-          </div>
-        ),
+        topicTitle: topic.title,
+        reflections: typeof reflections === "number" ? reflections : 0,
+        userCount: typeof userCount === "number" ? userCount : 0,
       });
     } else {
       setTooltip((prev) => ({ ...prev, visible: false }));
@@ -386,8 +443,8 @@ const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
               key={bubble.id}
               idx={i}
               topic={bubble}
-              reflections={bubble.reflections ?? 0}
-              userCount={bubble.userCount ?? 0}
+              reflections={typeof bubble.reflections === "number" ? bubble.reflections : 0}
+              userCount={typeof bubble.userCount === "number" ? bubble.userCount : 0}
               positions={positions}
               setPositions={setPositions}
               orbitCenters={orbitCenters}

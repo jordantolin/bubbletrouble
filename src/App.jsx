@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Profile from './pages/Profile';
+import Header from './components/Header';
 import XPToast from "./components/gamification/XPToast";
 import StreakToast from "./components/gamification/StreakToast";
 import AchievementToast from "./components/gamification/AchievementToast";
-import Header from './components/Header';
+import { useGamificationStore } from "./stores/useGamificationStore";
 import SplashScreen from './components/SplashScreen';
 import ThreeDCanvas from './components/ThreeDCanvas';
 import UIOverlay from './components/UIOverlay';
@@ -76,15 +77,35 @@ function MainApp() {
 }
 
 function App() {
+  const { xpToast, streakToast, achievementToast, set } = useGamificationStore();
+
   return (
     <Router>
-      <XPToast />
-<StreakToast />
-<AchievementToast />
+      {/* Notifiche toast, sempre visibili */}
+      {xpToast && (
+        <XPToast
+          amount={xpToast.amount}
+          reason={xpToast.reason}
+          levelUp={xpToast.levelUp}
+          onClose={() => set({ xpToast: null })}
+        />
+      )}
+      {streakToast && (
+        <StreakToast
+          count={streakToast.count}
+          onClose={() => set({ streakToast: null })}
+        />
+      )}
+      {achievementToast && (
+        <AchievementToast
+          description={achievementToast.description}
+          onClose={() => set({ achievementToast: null })}
+        />
+      )}
+
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/profile" element={<Profile />} />
-        {/* Aggiungi la rotta chat con parametro */}
         <Route path="/chat/:topic" element={<ChatView />} />
       </Routes>
     </Router>
