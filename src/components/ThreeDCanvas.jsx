@@ -5,6 +5,7 @@ import { OrbitControls, Html } from '@react-three/drei';
 import { useNavigate } from 'react-router-dom';
 import { useSpring, animated } from '@react-spring/three';
 import { Sparkles } from 'lucide-react';
+import { useGamificationStore } from "../stores/useGamificationStore"; // Gamification
 
 const AnimatedGroup = animated.group;
 
@@ -15,7 +16,7 @@ const GLOW_COLOR = "#FFF6B3";
 const LABEL_COLOR = "#BB8500";
 const HEADER_HEIGHT = 68; // pixel, uguale all'altezza dell'header
 
-// --- Bubble Component (resta uguale)
+// --- Bubble Component
 const Bubble = ({
   idx,
   topic,
@@ -265,6 +266,16 @@ const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
   const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, content: '' });
   const navigate = useNavigate();
 
+  // -- GAMIFICATION: XP e Streak per join bolla
+  const handleBubbleClick = (topic) => {
+    // XP e streak
+    useGamificationStore.getState().addXP(10, "Joined a bubble!");
+    useGamificationStore.getState().checkStreak();
+
+    if (onBubbleClick) onBubbleClick(topic);
+    else navigate(`/chat/${encodeURIComponent(topic.title)}`);
+  };
+
   useEffect(() => {
     setIsMobile(window.innerWidth < 768);
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -295,11 +306,6 @@ const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
       inclination: Math.random() * Math.PI,
     }))
   );
-
-  const handleBubbleClick = (topic) => {
-    if (onBubbleClick) onBubbleClick(topic);
-    else navigate(`/chat/${encodeURIComponent(topic.title)}`);
-  };
 
   const handleHover = (e, topic, reflections, userCount) => {
     if (e && topic) {
@@ -391,19 +397,19 @@ const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
             />
           ))}
           <OrbitControls
-  enableRotate
-  enableZoom
-  enablePan={!isMobile}
-  minDistance={10}
-  maxDistance={30}
-  minPolarAngle={0}
-  maxPolarAngle={Math.PI}
-  enableDamping
-  dampingFactor={0.13}
-  zoomSpeed={0.66}
-  panSpeed={0.48}
-  target={[0, 0, 0]}
-/>
+            enableRotate
+            enableZoom
+            enablePan={!isMobile}
+            minDistance={10}
+            maxDistance={30}
+            minPolarAngle={0}
+            maxPolarAngle={Math.PI}
+            enableDamping
+            dampingFactor={0.13}
+            zoomSpeed={0.66}
+            panSpeed={0.48}
+            target={[0, 0, 0]}
+          />
         </Canvas>
       </div>
     </>

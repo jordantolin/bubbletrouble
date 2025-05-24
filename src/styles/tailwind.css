@@ -55,3 +55,5 @@
     @apply text-lg font-bold text-red-500;
   }
 }
+@keyframes bounce-in { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.animate-bounce-in { animation: bounce-in 0.5s cubic-bezier(.4,2,.6,1) both; }

@@ -1,22 +1,23 @@
 import React, { useState } from 'react';
+import XPBar from "../components/gamification/XPBar";
+import { useGamificationStore } from "../stores/useGamificationStore";
 
 const Profile = () => {
   const [bio, setBio] = useState('Ciao, sono Jordan, appassionato di Bubble Trouble!');
   const [isEditingBio, setIsEditingBio] = useState(false);
-  const [level, setLevel] = useState(1);
-  const [xp, setXp] = useState(42);
-  const [streak, setStreak] = useState(5);
-  const [bubblesCreated, setBubblesCreated] = useState(12);
-  const [reflections, setReflections] = useState(34);
+
+  // --- Gamification (dati dallo store globale!)
+  const level = useGamificationStore((s) => s.level);
+  const xp = useGamificationStore((s) => s.xp);
+  const streak = useGamificationStore((s) => s.streak);
+  const achievements = useGamificationStore((s) => s.achievements);
+
+  // Stats dummy per ora (puoi legarli a dati reali)
+  const [bubblesCreated] = useState(12);
+  const [reflections] = useState(34);
 
   const [notificationsOn, setNotificationsOn] = useState(true);
   const [soundsOn, setSoundsOn] = useState(true);
-
-  const achievements = [
-    { id: 1, title: 'First Bubble', description: 'Created your first bubble!', icon: '🟡' },
-    { id: 2, title: 'Reflector', description: 'Made 10 reflections.', icon: '💬' },
-    { id: 3, title: 'Streak Master', description: '5-day streak!', icon: '🔥' },
-  ];
 
   const saveBio = () => {
     setIsEditingBio(false);
@@ -26,7 +27,7 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-[#FFF9ED] p-6 flex justify-center overflow-auto">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-md p-8 flex flex-col gap-8">
-        {/* Avatar + nome */}
+        {/* Avatar + nome + XPBar + streak/achievements */}
         <div className="flex items-center gap-5">
           <img
             src="https://i.pravatar.cc/120"
@@ -36,9 +37,15 @@ const Profile = () => {
           <div>
             <h2 className="text-3xl font-semibold text-yellow-600">Jordan</h2>
             <p className="text-gray-700 text-base mt-1">Level {level} - {xp} XP</p>
-            <p className="text-yellow-500 font-semibold text-base mt-2 flex items-center gap-1">
-              <span role="img" aria-label="fire">🔥</span> Streak: {streak} days
-            </p>
+            <div className="mt-2 flex flex-col gap-1">
+              <XPBar />
+              <div className="flex items-center gap-2 mt-2 text-yellow-800">
+                <span role="img" aria-label="fire">🔥</span>
+                <span>Streak: {streak} days</span>
+                <span role="img" aria-label="trophy" className="ml-4">🏆</span>
+                <span>Achievements: {achievements.length}</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -100,16 +107,20 @@ const Profile = () => {
         <section>
           <h3 className="text-xl font-semibold mb-4 border-b border-yellow-300 pb-2">Achievements</h3>
           <ul className="flex flex-wrap gap-5">
-            {achievements.map((a) => (
-              <li
-                key={a.id}
-                className="flex items-center gap-3 bg-yellow-50 px-4 py-2 rounded-md shadow-sm cursor-default hover:bg-yellow-100 transition font-medium text-gray-700"
-                title={a.description}
-              >
-                <span className="text-2xl">{a.icon}</span>
-                {a.title}
-              </li>
-            ))}
+            {achievements.length > 0 ? (
+              achievements.map((a, idx) => (
+                <li
+                  key={a.key || idx}
+                  className="flex items-center gap-3 bg-yellow-50 px-4 py-2 rounded-md shadow-sm cursor-default hover:bg-yellow-100 transition font-medium text-gray-700"
+                  title={a.description}
+                >
+                  <span className="text-2xl">🏅</span>
+                  {a.description || a.key}
+                </li>
+              ))
+            ) : (
+              <li className="text-gray-400 italic">Nessun achievement ancora sbloccato.</li>
+            )}
           </ul>
         </section>
 

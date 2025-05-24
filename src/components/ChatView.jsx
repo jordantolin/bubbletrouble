@@ -1,3 +1,4 @@
+import { useGamificationStore } from "../stores/useGamificationStore";
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -205,6 +206,12 @@ export default function ChatView() {
     );
   };
 
+  // GAMIFICATION: XP, streak, achievements
+  const addXP = (amount, reason) => {
+    useGamificationStore.getState().addXP(amount, reason);
+    useGamificationStore.getState().checkStreak();
+  };
+
   const attemptSend = () => {
     if (cd > 0) {
       setShowWarning(true);
@@ -214,6 +221,8 @@ export default function ChatView() {
     if (!input.trim()) return;
     sendMessage({ type: 'text', content: input.trim() });
     setInput('');
+    // XP + streak per messaggi
+    addXP(5, "Message sent");
   };
 
   const sendMessage = msg => {
@@ -237,6 +246,11 @@ export default function ChatView() {
       }
     ]);
     startCd(calcCd(messages.length + 1));
+
+    // XP per azioni media
+    if (msg.type === 'audio') addXP(8, "Voice message sent");
+    if (msg.type === 'gif') addXP(7, "GIF sent");
+    if (msg.type === 'image' || msg.type === 'video') addXP(8, "Media sent");
   };
 
   const onFile = e => {
@@ -646,6 +660,7 @@ export default function ChatView() {
               onSelect={url => {
                 sendMessage({ type: 'gif', content: url });
                 setShowGiphy(false);
+                addXP(7, "GIF sent");
               }}
             />
           </div>
