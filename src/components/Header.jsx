@@ -56,9 +56,17 @@ const Header = ({ searchText, onSearchChange }) => {
   const unreadCount = notifications.filter(n => !n.read && n.visible).length;
 
   return (
-    <header className="fixed top-0 left-0 w-full z-[9999] px-4 pt-3 pb-2 bg-[#FFF9ED] bg-opacity-80 backdrop-blur-xl shadow-xl rounded-b-[32px] select-none">
+    <header
+      className="fixed top-0 left-0 w-full z-[9999] px-4 pt-3 pb-2 bg-[#FFF9ED] bg-opacity-80 backdrop-blur-xl shadow-xl rounded-b-[32px] select-none"
+      style={{
+        WebkitTransform: 'translateZ(0)', // iOS/safari mobile rendering fix
+        transform: 'translateZ(0)',
+        willChange: 'transform',
+        pointerEvents: 'auto'
+      }}
+    >
       <div className="flex items-center justify-between">
-        {/* SOLO LOGO (no scritta!) */}
+        {/* SOLO LOGO */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <img
             src={logo}
@@ -68,7 +76,7 @@ const Header = ({ searchText, onSearchChange }) => {
           />
         </div>
 
-        {/* Search bar controlled con animazione smooth */}
+        {/* Search bar */}
         <div className="flex-grow mx-4">
           <div className="flex items-center gap-2 px-4 py-2 bg-white/70 backdrop-blur-lg rounded-full shadow-inner transition-all duration-500 ease-in-out">
             <Search className="text-[#8E8E93]" size={18} />
@@ -83,7 +91,7 @@ const Header = ({ searchText, onSearchChange }) => {
           </div>
         </div>
 
-        {/* Right: Notifications + User */}
+        {/* Right side */}
         <div className="flex items-center gap-3 flex-shrink-0">
           {/* Notifications */}
           <div className="relative" ref={notificationsRef}>
@@ -130,11 +138,11 @@ const Header = ({ searchText, onSearchChange }) => {
             )}
           </div>
 
-          {/* User Menu */}
+          {/* User Profile */}
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="hover:scale-105 transition-transform rounded-full p-2 bg-white/40 backdrop-blur-sm flex items-center justify-center"
+              className="rounded-full p-2 bg-white/40 backdrop-blur-sm shadow-md hover:scale-105 transition-transform flex items-center justify-center focus:outline-none"
               aria-label="Profile"
             >
               <User className="text-[#8E8E93]" size={20} />
@@ -155,7 +163,6 @@ const Header = ({ searchText, onSearchChange }) => {
           </div>
         </div>
       </div>
-
       {/* Animazione fadeIn keyframes */}
       <style>
         {`

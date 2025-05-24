@@ -4,18 +4,18 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import { useNavigate } from 'react-router-dom';
 import { useSpring, animated } from '@react-spring/three';
-import { Sparkles } from 'lucide-react'; // usa un'icona moderna (installare lucide-react o sostituire con span)
+import { Sparkles } from 'lucide-react';
 
 const AnimatedGroup = animated.group;
 
-// PALETTE
-const BASE_BUBBLE_COLOR = "#FFD600";   // Giallo più acceso
-const HOVER_BUBBLE_COLOR = "#FFEA60";  // Più chiaro e luminoso in hover
+const BASE_BUBBLE_COLOR = "#FFD600";
+const HOVER_BUBBLE_COLOR = "#FFEA60";
 const BUBBLE_EMISSIVE = "#FFD600";
-const GLOW_COLOR = "#FFF6B3";          // Glow sottile
+const GLOW_COLOR = "#FFF6B3";
 const LABEL_COLOR = "#BB8500";
+const HEADER_HEIGHT = 68; // pixel, uguale all'altezza dell'header
 
-// --- Bubble Component
+// --- Bubble Component (resta uguale)
 const Bubble = ({
   idx,
   topic,
@@ -31,7 +31,6 @@ const Bubble = ({
   const ref = useRef();
   const [hovered, setHovered] = useState(false);
 
-  // Dynamic size
   const safeReflections = typeof reflections === 'number' && !isNaN(reflections) ? reflections : 0;
   const safeUserCount = typeof userCount === 'number' && !isNaN(userCount) ? userCount : 0;
   const dynamicRadius = Math.max(
@@ -91,7 +90,6 @@ const Bubble = ({
     }
   });
 
-  // Animazione scala e glow
   const { scale } = useSpring({
     scale: hovered ? 1.17 : 1,
     config: { mass: 1, tension: 300, friction: 18 },
@@ -303,7 +301,6 @@ const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
     else navigate(`/chat/${encodeURIComponent(topic.title)}`);
   };
 
-  // Tooltip logic con miglioramenti UX
   const handleHover = (e, topic, reflections, userCount) => {
     if (e && topic) {
       setTooltip({
@@ -329,14 +326,12 @@ const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
     }
   };
 
-  // Tooltip mobile: chiusura su tap fuori
   useEffect(() => {
     if (!isMobile) return;
     if (!tooltip.visible) return;
     const handler = (e) => setTooltip((prev) => ({ ...prev, visible: false }));
     window.addEventListener('touchstart', handler);
     return () => window.removeEventListener('touchstart', handler);
-    // eslint-disable-next-line
   }, [isMobile, tooltip.visible]);
 
   return (
@@ -345,21 +340,25 @@ const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
         ? <MobileTooltip tooltip={tooltip} onClose={() => setTooltip(prev => ({ ...prev, visible: false }))} />
         : <DesktopTooltip tooltip={tooltip} />
       }
-
       <div
         style={{
-          width: '100vw',
-          height: '100vh',
-          position: 'absolute',
-          inset: 0,
+          position: "absolute",
+          top: HEADER_HEIGHT,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: "100vw",
+          height: `calc(100vh - ${HEADER_HEIGHT}px)`,
           zIndex: 0,
           touchAction: 'none',
+          background: '#FFF9ED'
         }}
       >
         <Canvas
           shadows
           camera={{ position: [0, 10, 20], fov: isMobile ? 60 : 48 }}
           gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
+          style={{ width: '100vw', height: '100%', background: '#FFF9ED' }}
         >
           <color attach="background" args={['#FFF9ED']} />
           <ambientLight intensity={0.81} />
@@ -392,19 +391,19 @@ const ThreeDCanvas = ({ bubbles = [], onBubbleClick }) => {
             />
           ))}
           <OrbitControls
-            enableRotate
-            enableZoom={!isMobile}
-            enablePan={!isMobile}
-            minDistance={10}
-            maxDistance={30}
-            minPolarAngle={0}
-            maxPolarAngle={Math.PI}
-            enableDamping
-            dampingFactor={0.13}
-            zoomSpeed={0.66}
-            panSpeed={0.48}
-            target={[0, 0, 0]}
-          />
+  enableRotate
+  enableZoom
+  enablePan={!isMobile}
+  minDistance={10}
+  maxDistance={30}
+  minPolarAngle={0}
+  maxPolarAngle={Math.PI}
+  enableDamping
+  dampingFactor={0.13}
+  zoomSpeed={0.66}
+  panSpeed={0.48}
+  target={[0, 0, 0]}
+/>
         </Canvas>
       </div>
     </>
