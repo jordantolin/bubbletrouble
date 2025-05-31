@@ -522,7 +522,7 @@ const ThreeDCanvas = memo(({ bubbles, onBubbleClick, showIntro }) => {
             frameloop="demand"
             dpr={isIPhone ? 1 : isAndroid ? 1.2 : [1, 1.5]}
             camera={{ position: [0, 10, 20], fov: isMobile ? 60 : 48, near: 1, far: 100 }}
-            gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }}
+            gl={{ antialias: false, alpha: false }}
             style={{ width: '100vw', height: '100%' }}
             onCreated={({ gl }) => {
               gl.domElement.addEventListener('webglcontextlost', (event) => {
