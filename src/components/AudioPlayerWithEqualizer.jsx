@@ -13,7 +13,7 @@ const getBarCount = (duration) => {
   return Math.round(min + ((max - min) * (seconds - 1) / 39));
 };
 
-const AudioPlayerWithEqualizer = ({ src, isActive = false, duration = 1, onPlay, onStop }) => {
+const AudioPlayerWithEqualizer = ({ src, isActive = false, duration = 1, onPlay, onStop, attachment_url }) => {
   const audioRef = useRef(null);
   const [heights, setHeights] = useState(Array(getBarCount(duration)).fill(18));
   const [playing, setPlaying] = useState(false);
@@ -23,8 +23,8 @@ const AudioPlayerWithEqualizer = ({ src, isActive = false, duration = 1, onPlay,
   const analyserRef = useRef(null);
   const sourceRef = useRef(null);
   const contextRef = useRef(null);
+  const barContainerRef = useRef(null);
 
-  // Aggiorna il tempo
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !isActive) return;
@@ -36,13 +36,11 @@ const AudioPlayerWithEqualizer = ({ src, isActive = false, duration = 1, onPlay,
 
     rafId.current = requestAnimationFrame(updateTime);
     return () => cancelAnimationFrame(rafId.current);
-
   }, [isActive]);
-  const barContainerRef = useRef(null);
-  // Equalizer
+
   useEffect(() => {
     const audio = audioRef.current;
-    if (!isActive || !audio) return;
+    if (!isActive || !audio || !src) return;
 
     if (!contextRef.current) {
       contextRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -74,11 +72,11 @@ const AudioPlayerWithEqualizer = ({ src, isActive = false, duration = 1, onPlay,
 
     rafId.current = requestAnimationFrame(update);
     return () => cancelAnimationFrame(rafId.current);
-  }, [isActive, duration]);
+  }, [isActive, duration, src]);
 
   const togglePlay = () => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !src) return;
 
     if (playing) {
       audio.pause();
@@ -103,71 +101,69 @@ const AudioPlayerWithEqualizer = ({ src, isActive = false, duration = 1, onPlay,
     if (!audio || !duration) return;
     const targetTime = (index / barCount) * duration;
     audio.currentTime = targetTime;
-};
-
-useEffect(() => {
-  const el = barContainerRef.current;
-  if (!el) return;
-
-  let isDragging = false;
-
-  const handleSeek = (x) => {
-    const rect = el.getBoundingClientRect();
-    const relativeX = Math.max(0, Math.min(x - rect.left, rect.width));
-    const index = Math.floor((relativeX / rect.width) * barCount);
-    seekTo(index);
   };
 
-  const onTouchMove = (e) => {
-    if (!isDragging) return;
-    handleSeek(e.touches[0].clientX);
-  };
+  useEffect(() => {
+    const el = barContainerRef.current;
+    if (!el) return;
 
-  const onTouchEnd = () => {
-    isDragging = false;
-    el.removeEventListener('touchmove', onTouchMove);
-    el.removeEventListener('touchend', onTouchEnd);
-  };
+    let isDragging = false;
 
-  const onTouchStart = (e) => {
-    isDragging = true;
-    handleSeek(e.touches[0].clientX);
-    el.addEventListener('touchmove', onTouchMove);
-    el.addEventListener('touchend', onTouchEnd);
-  };
+    const handleSeek = (x) => {
+      const rect = el.getBoundingClientRect();
+      const relativeX = Math.max(0, Math.min(x - rect.left, rect.width));
+      const index = Math.floor((relativeX / rect.width) * barCount);
+      seekTo(index);
+    };
 
-  const onMouseMove = (e) => {
-    if (!isDragging) return;
-    handleSeek(e.clientX);
-  };
+    const onTouchMove = (e) => {
+      if (!isDragging) return;
+      handleSeek(e.touches[0].clientX);
+    };
 
-  const onMouseUp = () => {
-    isDragging = false;
-    window.removeEventListener('mousemove', onMouseMove);
-    window.removeEventListener('mouseup', onMouseUp);
-  };
+    const onTouchEnd = () => {
+      isDragging = false;
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
 
-  const onMouseDown = (e) => {
-    isDragging = true;
-    handleSeek(e.clientX);
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-  };
+    const onTouchStart = (e) => {
+      isDragging = true;
+      handleSeek(e.touches[0].clientX);
+      el.addEventListener('touchmove', onTouchMove);
+      el.addEventListener('touchend', onTouchEnd);
+    };
 
-  el.addEventListener('mousedown', onMouseDown);
-  el.addEventListener('touchstart', onTouchStart);
+    const onMouseMove = (e) => {
+      if (!isDragging) return;
+      handleSeek(e.clientX);
+    };
 
-  return () => {
-    el.removeEventListener('mousedown', onMouseDown);
-    el.removeEventListener('touchstart', onTouchStart);
-    window.removeEventListener('mousemove', onMouseMove);
-    window.removeEventListener('mouseup', onMouseUp);
-  };
-}, [barCount, duration]);
+    const onMouseUp = () => {
+      isDragging = false;
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
 
+    const onMouseDown = (e) => {
+      isDragging = true;
+      handleSeek(e.clientX);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    };
 
-  const totalWidth = barCount * 4 + 55; // 3px width + 1px gap per barra + spazio pulsante
+    el.addEventListener('mousedown', onMouseDown);
+    el.addEventListener('touchstart', onTouchStart);
 
+    return () => {
+      el.removeEventListener('mousedown', onMouseDown);
+      el.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [barCount, duration]);
+
+  const totalWidth = barCount * 4 + 55;
 
   return (
     <div
@@ -182,13 +178,12 @@ useEffect(() => {
       <div
         className="flex items-center gap-3 px-2 py-1 rounded-2xl"
         style={{
-            width: `${totalWidth}px`,
-            minWidth: 'min-content',
-            maxWidth: '94vw',
-            background: 'linear-gradient(135deg,#fff5cc,#fff)',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-          }}
-          
+          width: `${totalWidth}px`,
+          minWidth: 'min-content',
+          maxWidth: '94vw',
+          background: 'linear-gradient(135deg,#fff5cc,#fff)',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+        }}
       >
         <button
           onClick={togglePlay}
@@ -202,57 +197,61 @@ useEffect(() => {
           )}
         </button>
 
-        <audio
-          ref={audioRef}
-          src={src}
-          crossOrigin="anonymous"
-          preload="auto"
-          onEnded={() => {
-            setPlaying(false);
-            setCurrentTime(0);
-            onStop?.();
-          }}
-          hidden
-        />
+        {src && (
+          <audio
+            ref={audioRef}
+            src={src}
+            type="audio/webm"
+            crossOrigin="anonymous"
+            preload="auto"
+            onEnded={() => {
+              setPlaying(false);
+              setCurrentTime(0);
+              onStop?.();
+            }}
+            onError={(e) => console.error('[AUDIO ERROR]', e)}
+            hidden
+          />
+        )}
 
         <div className="flex flex-col flex-1">
-        <div
-  className="flex items-end h-8 px-1 gap-[1px] overflow-hidden flex-1 touch-none"
-  ref={barContainerRef}
->
+          <div
+            className="flex items-end h-8 px-1 gap-[1px] overflow-hidden flex-1 touch-none"
+            ref={barContainerRef}
+          >
+            {heights.map((h, i) => {
+              const progressIndex = Math.floor((currentTime / duration) * barCount);
+              const isPlayed = i <= progressIndex;
+              const distanceFromCurrent = progressIndex - i;
+              const baseHeight = isPlayed
+                ? h
+                : 6 + Math.max(0, 4 - Math.abs(distanceFromCurrent)) * 1.2;
 
-{heights.map((h, i) => {
-  const progressIndex = Math.floor((currentTime / duration) * barCount);
-  const isPlayed = i <= progressIndex;
-  const distanceFromCurrent = progressIndex - i;
-  const baseHeight = isPlayed
-    ? h
-    : 6 + Math.max(0, 4 - Math.abs(distanceFromCurrent)) * 1.2;
-
-  return (
-    <div
-      key={`eqbar-${i}-${Math.floor(h)}`}
-      className="rounded-t"
-      style={{
-        width: 3,
-        height: `${baseHeight}px`,
-        minHeight: '4px',
-        maxHeight: '32px',
-        backgroundColor: isPlayed ? '#facc15' : '#fde68a',
-        transition: 'height 80ms ease, background-color 200ms ease',
-        willChange: 'height',
-        boxShadow: isPlayed ? `0 0 ${Math.max(1, baseHeight / 4)}px #facc15aa` : 'none',
-      }}
-    ></div>
-  );
-})}
-
+              return (
+                <div
+                  key={`eqbar-${i}-${Math.floor(h)}`}
+                  className="rounded-t"
+                  style={{
+                    width: 3,
+                    height: `${baseHeight}px`,
+                    minHeight: '4px',
+                    maxHeight: '32px',
+                    backgroundColor: isPlayed ? '#facc15' : '#fde68a',
+                    transition: 'height 80ms ease, background-color 200ms ease',
+                    willChange: 'height',
+                    boxShadow: isPlayed ? `0 0 ${Math.max(1, baseHeight / 4)}px #facc15aa` : 'none',
+                  }}
+                ></div>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* Tempo dinamico a destra */}
-      <span className="ml-3 text-xs font-mono text-yellow-800 select-none" style={{ minWidth: 30 }}>
+      <span
+        className="ml-3 text-xs font-mono text-yellow-800 select-none"
+        style={{ minWidth: 30 }}
+      >
         {formatTime(currentTime)}
       </span>
     </div>

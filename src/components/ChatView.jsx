@@ -1,3 +1,5 @@
+import { toast } from 'react-toastify';
+import { useSession } from '@supabase/auth-helpers-react';
 import { uploadToCloudinary } from '../utils/uploadToCloudinary';
 import AudioPlayerWithEqualizer from './AudioPlayerWithEqualizer';
 import { useGamificationStore } from "../stores/useGamificationStore";
@@ -37,6 +39,7 @@ async function uploadToDropbox(file) {
     },
     body: file
   });
+
   const uploadData = await res.json();
   // Ottieni link pubblico diretto
   const linkRes = await fetch("https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings", {
@@ -367,6 +370,9 @@ function ChatView() {
   const recTimerRef = useRef(null);
   const [showRecConfirm, setShowRecConfirm] = useState(false);
   const [recAudioBlob, setRecAudioBlob] = useState(null);
+
+  const [voiceMessagePreview, setVoiceMessagePreview] = useState(null);
+
   const [cancelBySwipe, setCancelBySwipe] = useState(false);
   const recordBtnRef = useRef(null);
 
@@ -453,26 +459,28 @@ function ChatView() {
 
   const sendMessage = async (msg) => {
     if (!uid) {
-      console.warn("UID non pronto, annullo invio.");
-      alert("User session not ready. Please wait a moment and try again."); // UI Error
+      console.warn("UID not ready, cancelling send.");
+      alert("User session not ready. Please wait a moment and try again.");
       return;
     }
 
-    if (!bubble || !bubble.id) { // CHECK bubble and bubble.id
-      console.warn("Bubble ID non pronto o invalido, annullo invio.");
-      alert("Bubble information is not available. Cannot send message."); // UI Error
+    if (!bubble || !bubble.id) {
+      console.warn("Bubble ID not ready or invalid, cancelling send.");
+      alert("Bubble information is not available. Cannot send message.");
       return;
     }
 
-    const trimmed = msg.content.trim();
+    const contentForDB = msg.type === 'audio' ? msg.content : msg.content.trim();
 
-    if (isSending) return;
+    if (isSending && msg.type !== 'audio') { // Allow concurrent audio sending if main flow isn't busy
+      console.warn("Already sending a non-audio message, new send cancelled.")
+      return;
+    }
     setIsSending(true);
 
-    // Upsert profilo SOLO se necessario (username o avatar_url mancanti)
     const { data: existingProfile } = await supabase
       .from('profiles')
-      .select('*, profiles!user_id(username, avatar_url)')
+      .select('username, avatar_url')
       .eq('id', uid)
       .maybeSingle();
 
@@ -489,54 +497,49 @@ function ChatView() {
     const payload = {
       bubble_id: bubble.id,
       user_id: uid,
-      content: trimmed,
+      content: contentForDB, // This will be attachment_url for audio, or trimmed text
       type: msg.type,
-      duration: msg.duration || null
+      duration: msg.duration || null,
+      client_temp_id: msg.client_temp_id || null, // Include client_temp_id if present
     };
 
-    const key = `${payload.bubble_id}-${payload.user_id}-${payload.type}-${Date.now()}`;
-    if (uploadingMessages.has(key)) {
-      console.warn("Messaggio già in upload, annullato.");
-      setIsSending(false);
-      return;
+    // For non-audio messages, we might still add a pending message if needed,
+    // but audio messages are handled optimistically by sendRecPreview.
+    let tempId = null;
+    if (msg.type !== 'audio') {
+      tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      setMessages(prev => [
+        ...prev,
+        {
+          id: tempId,
+          ...payload,
+          seenLocal: true,
+          pending: true,
+          profiles: { // Add a basic profile structure for consistent rendering
+            username: existingProfile?.username || 'Me',
+            avatar_url: existingProfile?.avatar_url || getUserAvatarUrl(uid || 'default'),
+          }
+        }
+      ]);
     }
-    uploadingMessages.add(key);
 
-    // Aggiungi messaggio pending con ID unico
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    setMessages(prev => [ // Directly append new pending message
-      ...prev,
-      {
-        id: tempId,
-        ...payload,
-        seenLocal: true,
-        pending: true
-      }
-    ]);
-
-    console.log('[sendMessage] Payload:', payload); // LOGGING
-    console.log('[sendMessage] bubble_id:', payload.bubble_id, 'user_id:', payload.user_id); // LOGGING
+    console.log('[sendMessage] Payload:', payload);
 
     const { error } = await supabase.from('messages').insert([payload]);
 
-    uploadingMessages.delete(key);
-    setIsSending(false);
+    setIsSending(false); // Set to false after operation completes
 
     if (error) {
-      console.error("Errore nel salvataggio messaggio:", error);
-      // Rimuovi il messaggio pending in caso di errore
-      setMessages(prev => prev.filter(m => m.id !== tempId));
-      // UI ERROR HANDLING
+      console.error("Error saving message:", error);
+      if (tempId) { // Only remove non-audio pending message on error
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+      }
       alert(`Error sending message: ${error.message}. Please try again.`);
     } else {
-      // Salva il messaggio come ultimo inviato (useful for other features, not deduplication anymore)
-      lastMessageRef.current = {
-        content: trimmed,
-        type: msg.type,
-        timestamp: Date.now() // Update timestamp here
-      };
+      // For non-audio messages, the pending message will be replaced by the subscription.
+      // For audio messages, the placeholder from sendRecPreview will be updated by subscription.
+      console.log("Message sent to Supabase:", payload);
 
-      // Aggiungi XP e cooldown per tutti i tipi di messaggio
       if (msg.type === 'text') {
         addXP(5, "Message sent");
         startCd(calcCd(messages.length));
@@ -547,8 +550,6 @@ function ChatView() {
         addXP(7, "Media sent");
         startCd(calcCd(messages.length));
       }
-
-      console.log("Messaggio inviato a Supabase:", payload);
     }
   };
 
@@ -573,7 +574,27 @@ function ChatView() {
     // Upload su Cloudinary
     try {
       mediaSending = true;
+      console.log("[DEBUG] File da caricare su Cloudinary:", f);
+
       const url = await uploadToCloudinary(f);
+      if (!url) {
+        console.error("❌ Nessuna URL ottenuta da Cloudinary.");
+        return;
+      }
+
+
+      const placeholder = {
+        id: uuid(), // o usa una tua funzione
+        user_id: session.user.id,
+        bubble_id: bubbleId,
+        content: URL.createObjectURL(audioFile),
+        type: 'audio',
+        duration: recTime,
+        created_at: new Date().toISOString(),
+        pending: true,
+      };
+      setMessages(prev => [...prev, placeholder]);
+
 
       console.log('[onFile] Cloudinary URL:', url); // LOGGING
 
@@ -683,46 +704,88 @@ function ChatView() {
     setRecDrag(false);
     setRecDragDir(null);
   };
-
+  const session = useSession();
   // *** FIX: questa funzione ora resetta TUTTI gli stati della registrazione ***
   const sendRecPreview = async () => {
-    if (recAudioBlob) {
-      if (mediaSending) {
-        console.warn("Invio vocale già in corso.");
-        return;
+    if (!recAudioBlob || mediaSending) return;
+
+    mediaSending = true;
+    const tempId = uuidv4();
+
+    if (messages.some(m => m.client_temp_id === tempId && m.pending)) {
+      console.warn("Attempting to send a voice message with an existing and pending client_temp_id:", tempId);
+      mediaSending = false;
+      return;
+    }
+
+    const newMsgPlaceholder = {
+      id: tempId,
+      type: 'audio',
+      content: URL.createObjectURL(recAudioBlob),
+      blob: recAudioBlob,
+      duration: recTime,
+      user_id: session?.user?.id || null,
+      created_at: new Date().toISOString(),
+      pending: true,
+      client_temp_id: tempId,
+      attachment_url: null,
+      profiles: {
+        username: session?.user?.user_metadata?.username || 'Me',
+        avatar_url: session?.user?.user_metadata?.avatar_url || getUserAvatarUrl(session?.user?.id || 'default'),
+      }
+    };
+
+    setMessages(prev => [...prev, newMsgPlaceholder]);
+
+    try {
+      const audioFile = new File([recAudioBlob], `audio-${Date.now()}.webm`, {
+        type: 'audio/webm',
+      });
+
+      const cloudinaryUrl = await uploadToCloudinary(audioFile);
+      console.log('[sendRecPreview] Cloudinary URL:', cloudinaryUrl);
+
+      if (!cloudinaryUrl) {
+        throw new Error("Upload to Cloudinary failed, no URL returned.");
       }
 
-      try {
-        mediaSending = true;
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.client_temp_id === tempId
+            ? {
+              ...msg,
+              attachment_url: cloudinaryUrl,
+              content: cloudinaryUrl,
+            }
+            : msg
+        )
+      );
 
-        const audioFile = new File([recAudioBlob], `audio-${Date.now()}.webm`, { type: "audio/webm" });
-        const url = await uploadToCloudinary(audioFile);
+      await sendMessage({
+        type: 'audio',
+        content: cloudinaryUrl,
+        duration: recTime,
+        client_temp_id: tempId,
+      });
 
-        console.log('[sendRecPreview] Cloudinary URL:', url); // LOGGING
-
-        if (url) {
-          sendMessage({ type: 'audio', content: url, duration: recTime });
-
-          // Reset completo di tutti gli stati della registrazione
-          setShowRecConfirm(false);
-          setRecAudioBlob(null);
-          setRecTime(0);
-          setRecording(false);
-          setCancelBySwipe(false);
-          setRecDrag(false);
-          setRecDragDir(null);
-          if (recTimerRef.current) {
-            clearInterval(recTimerRef.current);
-            recTimerRef.current = null;
-          }
-        }
-      } catch (err) {
-        console.error("Errore invio vocale:", err);
-        // UI ERROR HANDLING
-        alert(`Error sending voice message: ${err.message}. Please try again.`);
-      } finally {
-        mediaSending = false;
+    } catch (err) {
+      console.error('[sendRecPreview] Upload or send failed:', err);
+      toast.error('Error sending voice message: ' + err.message);
+      setMessages(prev => prev.filter(m => m.client_temp_id !== tempId));
+    } finally {
+      setShowRecConfirm(false);
+      setRecAudioBlob(null);
+      setRecTime(0);
+      setRecording(false);
+      setCancelBySwipe(false);
+      setRecDrag(false);
+      setRecDragDir(null);
+      setVoiceMessagePreview(null);
+      if (recTimerRef.current) {
+        clearInterval(recTimerRef.current);
+        recTimerRef.current = null;
       }
+      mediaSending = false;
     }
   };
 
@@ -783,42 +846,40 @@ function ChatView() {
           return;
         }
         setMessages(prev => {
-          // Filter out pending messages that are now confirmed by fetched data
-          const withoutPendingThatAreNowReal = prev.filter(
-            m => !(m.pending && (data || []).some(d =>
-              d.content === m.content &&
-              d.type === m.type &&
-              d.user_id === m.user_id &&
-              d.bubble_id === m.bubble_id // Ensure it's for the same bubble
-            ))
-          );
-          // Merge, ensuring fetched data takes precedence for non-pending, and keep unique pending.
           const messageMap = new Map();
-          [...withoutPendingThatAreNowReal, ...(data || [])].forEach(msg => {
-            if (msg.id && !msg.pending) { // Real messages from DB (data)
-              messageMap.set(msg.id, msg);
-            } else if (msg.pending && msg.id) { // Pending messages with temp ID
-              if (!messageMap.has(msg.id)) { // Only add if no real message with same temp ID (should not happen if temp IDs are unique)
-                messageMap.set(msg.id, msg);
+
+          // Add existing pending messages first, if they are not already replaced by fetched data
+          prev.forEach(msg => {
+            if (msg.pending && msg.client_temp_id) {
+              // If a fetched message matches this pending one, don't add the pending one to map yet.
+              const fetchedMatch = (data || []).find(d => d.client_temp_id === msg.client_temp_id || d.id === msg.id);
+              if (!fetchedMatch) {
+                messageMap.set(msg.client_temp_id || msg.id, msg);
               }
+            } else if (msg.pending) { // Non-audio pending messages without client_temp_id
+              messageMap.set(msg.id, msg);
             }
           });
-          const merged = Array.from(messageMap.values());
 
-          // Your existing deduplication logic for identical consecutive messages
-          const deduped = merged.filter((m, i, arr) => {
-            if (!m.id) return true; // Should not happen if map logic is correct
-            const prevMsg = arr[i - 1];
-            if (!prevMsg) return true;
-            return !(
-              prevMsg.id === m.id || // Basic ID check is enough if IDs are unique from DB and temp
-              (prevMsg.content === m.content &&
-                prevMsg.type === m.type &&
-                prevMsg.user_id === m.user_id &&
-                prevMsg.created_at === m.created_at)
-            );
+          // Add fetched messages, replacing pending ones if a match by client_temp_id or id is found
+          (data || []).forEach(fetchedMsg => {
+            if (fetchedMsg.client_temp_id && messageMap.has(fetchedMsg.client_temp_id)) {
+              // If there's a pending message with this client_temp_id, update it but keep its blob if current one is missing content
+              const pendingMsg = messageMap.get(fetchedMsg.client_temp_id);
+              messageMap.set(fetchedMsg.client_temp_id, {
+                ...pendingMsg, // keep local properties like blob if needed
+                ...fetchedMsg, // override with DB data
+                pending: false, // No longer pending
+                // Keep blob from pendingMsg if fetchedMsg.content is not yet populated for some reason (should not happen)
+                blob: !fetchedMsg.content && pendingMsg?.blob ? pendingMsg.blob : null,
+              });
+            } else {
+              messageMap.set(fetchedMsg.id, { ...fetchedMsg, pending: false });
+            }
           });
-          return deduped.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+          const merged = Array.from(messageMap.values());
+          return merged.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         });
         setLoading(false);
       });
@@ -834,9 +895,7 @@ function ChatView() {
           table: 'messages',
           filter: `bubble_id=eq.${bubble.id}`
         },
-        (payload) => { // Supabase passes the new record in payload.new
-          // Fetch the newly inserted message with profile data
-          // This is important because payload.new might not have the joined profile
+        (payload) => {
           supabase
             .from('messages')
             .select(`
@@ -846,8 +905,8 @@ function ChatView() {
                 avatar_url
               )
             `)
-            .eq('id', payload.new.id) // Fetch the specific new message by its ID
-            .maybeSingle() // Expecting one or null
+            .eq('id', payload.new.id)
+            .maybeSingle()
             .then(({ data: newMessage, error: fetchError }) => {
               if (fetchError) {
                 console.error("Error fetching new message after realtime event:", fetchError);
@@ -859,27 +918,32 @@ function ChatView() {
               }
 
               setMessages(prev => {
-                // Rimuovi il messaggio pending che corrisponde a quello reale appena arrivato
-                const withoutMatchingPending = prev.filter(
-                  m => {
-                    if (!m.pending) return true; // Keep non-pending messages
-                    // Check if this pending message matches the new real message
-                    return !(
-                      m.bubble_id === newMessage.bubble_id &&
-                      m.user_id === newMessage.user_id &&
-                      m.content === newMessage.content &&
-                      m.type === newMessage.type
-                    );
-                  }
-                );
+                const messageMap = new Map();
+                prev.forEach(m => messageMap.set(m.client_temp_id || m.id, m));
 
-                // Aggiungi solo il messaggio nuovo se non esiste già (by ID)
-                const messageExists = withoutMatchingPending.some(m => m.id === newMessage.id);
-                if (messageExists) {
-                  return withoutMatchingPending.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                const newMsgId = newMessage.client_temp_id || newMessage.id;
+                const existingMsg = messageMap.get(newMsgId);
+
+                if (existingMsg && existingMsg.pending) {
+                  // Replace pending message with the new message from DB
+                  messageMap.set(newMsgId, {
+                    ...existingMsg, // keep some potentially useful optimistic UI state if needed
+                    ...newMessage,
+                    pending: false,
+                    blob: null // Clear blob as we now have the final message
+                  });
+                } else if (!existingMsg) {
+                  // New message not seen before, add it
+                  messageMap.set(newMsgId, { ...newMessage, pending: false });
+                } else {
+                  // Message already exists and is not pending (e.g., received through initial fetch or previous update)
+                  // Potentially update if needed, but usually just keep the existing one to avoid re-renders
+                  // For now, we assume if it exists and not pending, it's up-to-date.
+                  messageMap.set(newMsgId, { ...newMessage, pending: false }); // Ensure it's marked not pending
                 }
 
-                return [...withoutMatchingPending, newMessage].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                const updatedMessages = Array.from(messageMap.values());
+                return updatedMessages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
               });
             });
         }
@@ -1237,19 +1301,36 @@ function ChatView() {
                           width: getBubbleWidth(msg.duration),
                           minWidth: '90px',
                           maxWidth: 'calc(100vw - 100px)',
+                          cursor: 'pointer'
                         }}
+                        onClick={() => togglePlay(msg.id)}
                       >
                         <AudioPlayerWithEqualizer
+                          key={msg.id + (msg.pending ? '-pending' : '-real')}
                           style={{
-                            width: getBubbleWidth(msg.duration),
-                            minWidth: '90px',
-                            maxWidth: 'calc(100vw - 100px)', // più preciso su mobile
+                            zIndex: 10,
+                            position: 'relative',
+                            width: '100%',
+                            pointerEvents: 'auto',
                           }}
-                          src={msg.content}
-                          isActive={activeIndex === i}
+                          src={msg.pending && msg.blob ? URL.createObjectURL(msg.blob) : (msg.attachment_url || msg.content)}
+                          isActive={playingId === msg.id && activeIndex === i}
                           duration={msg.duration}
-                          onPlay={() => setActiveIndex(i)}
-                          onStop={() => setActiveIndex(null)}
+                          onPlay={() => {
+                            setPlayingId(msg.id);
+                            setActiveIndex(i);
+                            if (audioRefs.current[msg.id] && audioRefs.current[msg.id].current) {
+                              currentAudioRef.current = audioRefs.current[msg.id].current;
+                            }
+                          }}
+                          onStop={() => {
+                            setPlayingId(null);
+                            setActiveIndex(null);
+                            if (currentAudioRef.current && currentAudioRef.current.src === (msg.pending && msg.blob ? URL.createObjectURL(msg.blob) : (msg.attachment_url || msg.content))) {
+                              currentAudioRef.current = null;
+                            }
+                          }}
+                          audioRef={audioRefs.current[msg.id]}
                           showTimeRight
                           isCurrentUser={isCurrentUser}
                         />
@@ -1271,7 +1352,7 @@ function ChatView() {
 
       {/* Barra di registrazione vocale - iPhone safe */}
       {(recording && !showRecConfirm) && (
-        <div className="fixed inset-x-0 z-30 flex justify-center px-4 pointer-events-none"
+        <div className="fixed inset-x-0 z-30 flex justify-center px-4 pointer-events-auto"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}>
           <div
             className="flex items-center bg-yellow-100 shadow px-3 py-3 rounded-2xl border border-yellow-300 animate-fade-in pointer-events-auto w-full"
@@ -1303,7 +1384,7 @@ function ChatView() {
 
       {/* Conferma invio/cancella vocale - iPhone safe */}
       {showRecConfirm && recAudioBlob && (
-        <div className="fixed inset-x-0 z-30 flex justify-center px-4 pointer-events-none"
+        <div className="fixed inset-x-0 z-30 flex justify-center px-4 pointer-events-auto"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}>
 
           <div
@@ -1393,9 +1474,11 @@ function ChatView() {
                   }
                   mediaSending = true;
                   try {
+
                     const blob = await fetch(preview).then(r => r.blob());
                     const file = new File([blob], `media-${Date.now()}.${previewType === 'image' ? 'jpg' : 'mp4'}`, { type: blob.type });
-                    const url = await uploadToCloudinary(file);
+                    url = await uploadToCloudinary
+                      (file);
 
                     console.log('[preview send] Cloudinary URL:', url); // LOGGING
 

@@ -14,6 +14,7 @@ function MainApp() {
   const debounceTimeout = useRef(null);
   const [selectedTopic, setSelectedTopic] = useState('Tutti');
   const navigate = useNavigate();
+  const canvasRef = useRef();
 
   const fetchAndSyncBubbles = useBubblesStore(state => state.fetchAndSyncBubbles);
   const bubbles = useBubblesStore(state => state.bubbles);
@@ -75,17 +76,28 @@ function MainApp() {
     return name.includes(search) || topic.includes(search);
   });
 
+  // 2. Definisci la funzione handleBubbleSelect
+  const handleBubbleSelect = (bubbleId) => {
+    if (canvasRef.current?.focusOnBubble) { // Verifica anche l'esistenza della funzione
+      canvasRef.current.focusOnBubble(bubbleId);
+    } else {
+      console.warn("[MainApp] canvasRef.current.focusOnBubble non è disponibile.")
+    }
+  };
+
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#FFF9ED]">
       {!showSplash && (
         <Header
           searchText={searchText}
           onSearchChange={setSearchText}
+          onBubbleSelect={handleBubbleSelect}
         />
       )}
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
 
       <ThreeDCanvas
+        ref={canvasRef}
         bubbles={filteredBubbles}
         onBubbleClick={(bubble) => navigate(`/chat/${encodeURIComponent(bubble.id)}`)}
       />

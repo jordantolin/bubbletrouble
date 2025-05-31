@@ -3,10 +3,13 @@ import { Bell, User, Search } from 'lucide-react';
 import logo from '../assets/logobubbletrouble.png';
 import { useNavigate } from 'react-router-dom';
 import { useGamificationStore } from '../stores/useGamificationStore';
+import { useBubblesStore } from '../stores/useBubblesStore';
 
-const Header = ({ searchText, onSearchChange }) => {
+const Header = ({ searchText, onSearchChange, onBubbleSelect }) => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const bubbles = useBubblesStore(state => state.bubbles);
 
   // Stato locale per le notifiche del dropdown Header
   const [notifications, setNotifications] = useState([
@@ -18,6 +21,8 @@ const Header = ({ searchText, onSearchChange }) => {
 
   const userMenuRef = useRef(null);
   const notificationsRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const suggestionsRef = useRef(null);
   const navigate = useNavigate();
 
   const showXPToast = useGamificationStore((s) => s.showXPToast);
@@ -38,10 +43,39 @@ const Header = ({ searchText, onSearchChange }) => {
       ) {
         setNotificationsOpen(false);
       }
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target) && searchInputRef.current && !searchInputRef.current.contains(event.target)) {
+        setSearchSuggestions([]);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleLocalSearchChange = (e) => {
+    const searchTerm = e.target.value;
+    onSearchChange(searchTerm);
+
+    if (searchTerm.trim().length > 0) {
+      const filtered = bubbles.filter(bubble =>
+        bubble.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        bubble.topic?.toLowerCase().includes(searchTerm.toLowerCase())
+      ).slice(0, 5);
+      setSearchSuggestions(filtered);
+    } else {
+      setSearchSuggestions([]);
+    }
+  };
+
+  const handleSuggestionClick = (bubble) => {
+    onSearchChange(bubble.name);
+    setSearchSuggestions([]);
+    if (onBubbleSelect && bubble.id) {
+      onBubbleSelect(bubble.id);
+    }
+    if (searchInputRef.current) {
+      searchInputRef.current.blur();
+    }
+  };
 
   const onNotificationClick = (id) => {
     const notif = notifications.find(n => n.id === id);
@@ -101,18 +135,34 @@ const Header = ({ searchText, onSearchChange }) => {
           />
         </div>
 
-        <div className="flex-grow mx-4">
-          <div className="flex items-center gap-2 px-4 py-2 bg-white/70 backdrop-blur-lg rounded-full shadow-inner transition-all duration-500 ease-in-out">
+        <div className="flex-grow mx-4 relative">
+          <div ref={searchInputRef} className="flex items-center gap-2 px-4 py-2 bg-white/70 backdrop-blur-lg rounded-full shadow-inner transition-all duration-500 ease-in-out">
             <Search className="text-[#8E8E93]" size={18} />
             <input
               type="text"
               placeholder="Search bubbles..."
               value={searchText}
-              onChange={(e) => onSearchChange(e.target.value)}
+              onChange={handleLocalSearchChange}
+              onFocus={handleLocalSearchChange}
               className="w-full bg-transparent text-sm placeholder-[#8E8E93] px-2 border-0 focus:outline-none focus:ring-0 shadow-none transition-colors duration-300 ease-in-out"
               style={{ caretColor: '#FFD90A' }}
             />
           </div>
+          {searchSuggestions.length > 0 && (
+            <div ref={suggestionsRef} className="absolute top-full left-0 right-0 mt-1.5 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-yellow-200 z-50 overflow-hidden">
+              <ul className="py-1">
+                {searchSuggestions.map(bubble => (
+                  <li
+                    key={bubble.id}
+                    onClick={() => handleSuggestionClick(bubble)}
+                    className="px-4 py-2.5 text-sm text-yellow-800 hover:bg-yellow-100 cursor-pointer transition-colors duration-150"
+                  >
+                    {bubble.name} <span className="text-xs text-gray-500">({bubble.topic})</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">
