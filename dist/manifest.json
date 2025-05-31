@@ -1,0 +1,21 @@
+{
+  "name": "Bubble Trouble",
+  "short_name": "Bubble",
+  "theme_color": "#FFF9ED",
+  "background_color": "#FFF9ED",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+} 
