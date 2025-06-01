@@ -287,6 +287,30 @@ const bubbleCategory = bubble?.category || '';
   
   const reflectionsCount = typeof bubble?.reflections === "number" ? bubble.reflections : 0;
 
+  useEffect(() => {
+    let touchStartX = 0;
+    let touchEndX = 0;
+  
+    const handleTouchStart = (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    };
+  
+    const handleTouchEnd = (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      if (touchEndX - touchStartX > 80) {
+        navigate('/'); // oppure navigate(-1) se vuoi tornare indietro nella cronologia
+      }
+    };
+  
+    window.addEventListener('touchstart', handleTouchStart);
+    window.addEventListener('touchend', handleTouchEnd);
+  
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
+  
 
 
   function clean(arr) {
