@@ -267,6 +267,15 @@ function ChatView() {
   const bubble = useMemo(() => {
     return bubbles.find(b => String(b.id) === String(topic));
   }, [bubbles, topic]);
+
+  const fetchReflectionsForBubbleAndUpdateStore = useBubblesStore(state => state.fetchReflectionsForBubbleAndUpdateStore);
+
+useEffect(() => {
+  if (bubble?.id) {
+    fetchReflectionsForBubbleAndUpdateStore(bubble.id);
+  }
+}, [bubble?.id]);
+
   
   const bubbleTitle = bubble?.title || '';
 const bubblePrompt = bubble?.prompt || '';
@@ -276,7 +285,7 @@ const bubbleCategory = bubble?.category || '';
 
   const [countdown, setCountdown] = useState(getBubbleCountdown(bubble.created_at));
   
-  const reflectionsCount = bubble?.reflections?.length || 0;
+  const reflectionsCount = typeof bubble?.reflections === "number" ? bubble.reflections : 0;
 
 
 
