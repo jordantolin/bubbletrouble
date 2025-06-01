@@ -1,21 +1,33 @@
-import DesktopTooltip from './DesktopTooltip';
-import MobileTooltip from './MobileTooltip';
-import TopBubblesFeed from './TopBubblesFeed';
-import React, { useRef, useState, useEffect, useCallback, lazy, Suspense, memo } from 'react';
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  useCallback,
+  lazy,
+  Suspense,
+  memo
+} from 'react';
+
 import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import { useSpring, animated, to } from '@react-spring/three';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@supabase/auth-helpers-react';
+
+import DesktopTooltip from './DesktopTooltip';
+import MobileTooltip from './MobileTooltip';
+import TopBubblesFeed from './TopBubblesFeed';
 import ToastNotification from './ToastNotification';
 import CreateBubbleModal from './CreateBubbleModal';
-import { createBubble } from '../api/bubbles';
-import { supabase } from '../supabaseClient';
-import { useNotificationsStore, NOTIFICATION_TYPES } from "../stores/useNotificationsStore";
 import MobileTopBubblesSheet from './MobileTopBubblesSheet';
 
-const VoiceMessagePlayer = lazy(() => import('../components/VoiceMessagePlayer'));
+import { createBubble } from '../api/bubbles';
+import { supabase } from '../supabaseClient';
+import { useNotificationsStore, NOTIFICATION_TYPES } from '../stores/useNotificationsStore';
+
+
+const VoiceMessagePlayer = lazy(() => import('./VoiceMessagePlayer'));
 const ChatView = lazy(() => import('../components/ChatView'));
 
 const AnimatedGroup = animated.group;
@@ -139,10 +151,14 @@ const Bubble = memo(React.forwardRef(({
     }
 
     posRef.current = pos;
-    setPositions(idx, { ...pos, radius: dynamicRadius });
-    groupRef.current.position.set(pos.x, pos.y, pos.z);
-    groupRef.current.rotation.y += 0.002;
-    groupRef.current.rotation.x += 0.0015;
+    requestAnimationFrame(() => {
+      setPositions(idx, { ...pos, radius: dynamicRadius });
+    });
+        groupRef.current.position.set(pos.x, pos.y, pos.z);
+    if (canvasActive) {
+      groupRef.current.rotation.y += 0.002;
+      groupRef.current.rotation.x += 0.0015;
+    }
   });
 
   const [hovered, setHovered] = useState(false);
@@ -207,8 +223,8 @@ const Bubble = memo(React.forwardRef(({
   className="cursor-pointer"
 >
   <animated.mesh
-    geometry={new THREE.SphereGeometry(dynamicRadius, isMobile ? 24 : 48, isMobile ? 24 : 48)}
-    scale={bubbleScale}
+geometry={new THREE.SphereGeometry(dynamicRadius, isMobile ? 18 : 48, isMobile ? 18 : 48)}
+scale={bubbleScale}
     opacity={bubbleOpacity}
   >
     <animated.meshStandardMaterial
@@ -228,15 +244,16 @@ const Bubble = memo(React.forwardRef(({
     scale={bubbleScale}
     opacity={bubbleOpacity}
   >
-    <meshStandardMaterial
-      color={sphereGlowColor}
-      roughness={0.7}
-      metalness={0.02}
-      transparent
-      opacity={glow.to(g => Math.max(g, 0.13 + reflectNorm * 0.26))}
-      emissive={sphereGlowColor}
-      emissiveIntensity={glow.to(g => 0.6 + g * 1.25 + reflectNorm * 2.1 + (recentlyCreated ? 1.8 : 0))}
-    />
+<meshStandardMaterial
+  color={hovered ? '#fffac0' : sphereGlowColor}
+  roughness={0.7}
+  metalness={0.02}
+  transparent
+  opacity={glow.to(g => Math.max(g, 0.13 + reflectNorm * 0.26))}
+  emissive={sphereGlowColor}
+  emissiveIntensity={glow.to(g => 0.6 + g * 1.25 + reflectNorm * 2.1 + (recentlyCreated ? 1.8 : 0))}
+/>
+
   </animated.mesh>
 
   <Html distanceFactor={10} style={{ pointerEvents: 'none', userSelect: 'none', marginTop: -12 }}>
@@ -473,10 +490,18 @@ const ThreeDCanvas = memo(({ bubbles, onBubbleClick, showIntro }) => {
         onCreate={handleCreateBubble}
       />
 
-      <Suspense fallback={<div>Loading...</div>}>
-        {/* <ChatView /> */}
-        {/* <VoiceMessagePlayer url={"/audio.mp3"} isPlaying={false} onPlay={() => { }} onPause={() => { }} heights={[]} /> */}
-      </Suspense>
+<Suspense fallback={null}>
+  {canvasActive && (
+    <VoiceMessagePlayer
+      url="/audio.mp3"
+      isPlaying={false}
+      onPlay={() => {}}
+      onPause={() => {}}
+      heights={[]}
+    />
+  )}
+</Suspense>
+
 
       {isMobile && (
         <>
@@ -524,22 +549,27 @@ const ThreeDCanvas = memo(({ bubbles, onBubbleClick, showIntro }) => {
         <ErrorBoundary>
           <Canvas
             shadows={!isIPhone}
-            frameloop="demand"
-            dpr={isIPhone ? 1 : isAndroid ? 1.2 : [1, 1.5]}
+            frameloop="always"
+            dpr={isMobile ? [0.8, 1] : [1, 1.5]}
             camera={{ position: [0, 10, 20], fov: isMobile ? 60 : 48, near: 1, far: 100 }}
             gl={{ antialias: false, alpha: false }}
             style={{ width: '100vw', height: '100%' }}
             onCreated={({ gl }) => {
               gl.domElement.addEventListener('webglcontextlost', (event) => {
                 event.preventDefault();
+                console.warn("WebGL context lost. Trying to recover...");
                 setCanvasActive(false);
-                setTimeout(() => setCanvasActive(true), 1000);
+                setTimeout(() => setCanvasActive(true), 1200);
               });
-              gl.domElement.addEventListener('webglcontextrestored', () => setCanvasActive(true));
+              gl.domElement.addEventListener('webglcontextrestored', () => {
+                console.info("WebGL context restored.");
+                setCanvasActive(true);
+              });
             }}
+            performance={{ min: 0.8, max: 1 }}
           >
-            <color attach="background" args={['#FFF9ED']} />
-            <ambientLight intensity={1.1} />
+<color attach="background" args={[isMobile ? '#FFF9ED' : '#FDF6E3']} />
+<ambientLight intensity={1.1} />
             <pointLight position={[10, 10, 5]} intensity={1.4} />
             <OrbitControls enableZoom enablePan={false} enableRotate maxDistance={30} minDistance={10} />
             <PlanetCore />
