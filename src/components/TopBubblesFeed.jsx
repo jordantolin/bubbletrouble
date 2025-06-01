@@ -29,7 +29,7 @@ const TopBubblesFeed = ({ bubbles, onSelect }) => {
               borderLeft: idx === 0 ? "4px solid #FFD600" : "none"
             }}
           >
-            <span className="truncate">{bubble.name}</span>
+            <span className="truncate">{bubble.title}</span>
             <span className="ml-auto text-yellow-900 bg-yellow-200 px-2 py-1 rounded text-xs">{bubble.reflections} ✨</span>
           </li>
         ))}

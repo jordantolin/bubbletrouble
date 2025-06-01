@@ -9,43 +9,60 @@ import { fetchActiveBubbles } from '../api/bubbles';
 export const useBubblesStore = create(
   persist(
     (set, get) => ({
-      bubbles: [], 
+      bubbles: [],
 
-      // Sostituisce tutte le bolle (usato solo dal fetch iniziale)
-      setBubbles: (bubbles) => set({ bubbles }),
+      setBubbles: (bubbles) =>
+        set({
+          bubbles: bubbles.map(b => ({
+            ...b,
+            reflections: b.reflections || 0,
+            reflectsUsers: b.reflectsUsers || []
+          }))
+        }),
 
-      // Aggiorna una singola bolla dopo UPDATE (usato solo da sub realtime)
-      updateBubble: (bubble) => set(state => ({
-        bubbles: state.bubbles.map(b => b.id === bubble.id ? bubble : b)
-      })),
+      updateBubble: (bubble) =>
+        set(state => ({
+          bubbles: state.bubbles.map(b =>
+            b.id === bubble.id
+              ? {
+                  ...bubble,
+                  reflections: bubble.reflections || 0,
+                  reflectsUsers: bubble.reflectsUsers || []
+                }
+              : b
+          )
+        })),
 
-      // Aggiunge una nuova bolla (usato solo da sub realtime)
-      addBubble: (bubble) => set(state => ({
-        bubbles: [bubble, ...state.bubbles.filter(b => b.id !== bubble.id)]
-      })),
+      addBubble: (bubble) =>
+        set(state => ({
+          bubbles: [
+            {
+              ...bubble,
+              reflections: bubble.reflections || 0,
+              reflectsUsers: bubble.reflectsUsers || []
+            },
+            ...state.bubbles.filter(b => b.id !== bubble.id)
+          ]
+        })),
 
-      // Rimuove una bolla (usato solo da sub realtime)
-      removeBubble: (id) => set(state => ({
-        bubbles: state.bubbles.filter(b => b.id !== id)
-      })),
+      removeBubble: (id) =>
+        set(state => ({
+          bubbles: state.bubbles.filter(b => b.id !== id)
+        })),
 
-      // Fetch solo bolle attive (ultime 24h) + attiva subscription realtime Supabase
       fetchAndSyncBubbles: async () => {
-        // Fetch solo bolle attive (ultime 24h)
         const data = await fetchActiveBubbles();
-        console.log("DEBUG: fetchAndSyncBubbles SUPABASE DATA:", data);
 
         set({
           bubbles: Array.isArray(data)
             ? data.map(b => ({
                 ...b,
-                reflections: b.reflections || []
+                reflections: b.reflections || 0,
+                reflectsUsers: b.reflectsUsers || []
               }))
             : []
         });
-        
 
-        // Realtime subscription: ascolta tutte le modifiche su bubbles
         supabase
           .channel('public:bubbles')
           .on(
@@ -60,10 +77,8 @@ export const useBubblesStore = create(
           .subscribe();
       },
 
-      // Toggle reflect: aggiorna SOLO il DB, lo stato si aggiorna tramite la sub
       toggleReflect: async (bubbleId) => {
         const uid = localStorage.getItem('bt_uid') || 'guest';
-        // Fetch la bolla aggiornata dal DB
         const { data: bubble, error } = await supabase
           .from('bubbles')
           .select('*')
@@ -81,7 +96,6 @@ export const useBubblesStore = create(
         } else {
           reflectsUsers = [...reflectsUsers, uid];
           reflections += 1;
-          // XP o gamification (facoltativo)
           if (useGamificationStore.getState().incrementReflects) {
             useGamificationStore.getState().incrementReflects();
           }
@@ -91,16 +105,13 @@ export const useBubblesStore = create(
           .from('bubbles')
           .update({ reflectsUsers, reflections })
           .eq('id', bubbleId);
-
-        // Lo store si aggiorna live tramite la subscription realtime!
       },
 
-      // Ritorna true se l'utente ha già reflectato questa bolla
       hasUserReflected: (bubbleId) => {
         const uid = localStorage.getItem('bt_uid') || 'guest';
         const bubble = get().bubbles.find(b => b.id === bubbleId);
         return bubble && Array.isArray(bubble.reflectsUsers) && bubble.reflectsUsers.includes(uid);
-      },
+      }
     }),
     { name: 'bubbletrouble-bubbles' }
   )

@@ -263,8 +263,11 @@ function useAudioFFTForId(id, playingId, barCount = 20) {
 
 function ChatView() {
   const { topic } = useParams(); // <-- topic qui è l'ID della bolla!
-  const { bubbles, toggleReflect, hasUserReflected } = useBubblesStore();
-  const bubble = bubbles.find(b => String(b.id) === String(topic));
+  const { bubbles, toggleReflect, hasUserReflected, setBubble } = useBubblesStore();
+  const bubble = useMemo(() => {
+    return bubbles.find(b => String(b.id) === String(topic));
+  }, [bubbles, topic]);
+  
   const bubbleTitle = bubble?.title || '';
 const bubblePrompt = bubble?.prompt || '';
 const bubbleCategory = bubble?.category || '';
@@ -1074,66 +1077,77 @@ const bubbleCategory = bubble?.category || '';
   const toggleReflection = async () => {
     if (!bubble?.id || !uid) {
       console.warn("Cannot toggle reflection: bubble ID or user ID is missing.");
-      // Consider showing a toast to log in if uid is missing
       alert("Please log in to reflect on bubbles.");
       return;
     }
 
     try {
+      // Check if a reflection already exists for this user and bubble
       const { data: existingReflection, error: checkError } = await supabase
         .from('reflections')
         .select('id')
         .eq('bubble_id', bubble.id)
         .eq('user_id', uid)
-        .maybeSingle(); // Handles 0 or 1 result gracefully
+        .maybeSingle();
 
       if (checkError) {
         console.error("Error checking existing reflection:", checkError);
-        // Potentially show a toast message to the user
         alert("Could not check your reflection status. Please try again.");
         return;
       }
 
+      const currentBubbleInStore = useBubblesStore.getState().bubbles.find(b => String(b.id) === String(bubble.id));
+
       if (existingReflection) {
-        // User has already reflected → remove reflection
+        // Reflection exists, so delete it
         const { error: deleteError } = await supabase
           .from('reflections')
           .delete()
-          .eq('bubble_id', bubble.id) // Ensure using the correct ID from existingReflection if it was different, but bubble.id should be fine
+          .eq('bubble_id', bubble.id)
           .eq('user_id', uid);
 
         if (deleteError) {
           console.error("Error deleting reflection:", deleteError);
           alert("Could not remove your reflection. Please try again.");
         } else {
-          setHasReflected(false); // Optimistic update
+          setHasReflected(false);
+          if (currentBubbleInStore) {
+            useBubblesStore.getState().updateBubble({
+              ...currentBubbleInStore,
+              reflections: Math.max(0, (currentBubbleInStore.reflections || 0) - 1),
+            });
+          }
+          // Optionally, fetch and update the global reflection count if needed elsewhere
+          // fetchReflectionCount(); 
         }
       } else {
-        // Add new reflection
-        const { error: insertError } = await supabase.from('reflections').insert([
-          {
+        // Reflection does not exist, so insert it
+        const { error: insertError } = await supabase
+          .from('reflections')
+          .insert([{
             bubble_id: bubble.id,
-            user_id: uid, // Use uid from component state
+            user_id: uid,
             reflected_at: new Date().toISOString(),
-          },
-        ]);
+          }]);
+
         if (insertError) {
           console.error("Error inserting reflection:", insertError);
           alert("Could not add your reflection. Please try again.");
         } else {
-          setHasReflected(true); // Optimistic update
+          setHasReflected(true);
+          if (currentBubbleInStore) {
+            useBubblesStore.getState().updateBubble({
+              ...currentBubbleInStore,
+              reflections: (currentBubbleInStore.reflections || 0) + 1,
+            });
+          }
+          // Optionally, fetch and update the global reflection count
+          // fetchReflectionCount();
         }
       }
     } catch (e) {
-      console.error("Exception in toggleReflection:", e);
-      alert("An unexpected error occurred while toggling reflection.");
-    } finally {
-      fetchReflectionCount(); // Always re-fetch the count
-      // fetchHasReflected(); // Re-fetch to be absolutely sure, though optimistic update should mostly cover UI change
-      // It's good practice to fetch definitive status after an operation that might fail silently or have edge cases.
-      // However, since toggleReflection has distinct paths for add/delete and sets state, this might be redundant if Supabase is quick.
-      // For robustness, let's keep it if direct state update after DB ops is not 100% covering all edge cases.
-      // Given the logic, `setHasReflected` is already being called correctly in if/else. So only count is essential to refetch here.
+      console.error("Unexpected error in toggleReflection:", e);
+      alert("An unexpected error occurred while toggling reflection. Please try again.");
     }
   };
 
@@ -1153,55 +1167,45 @@ const bubbleCategory = bubble?.category || '';
   }, [bubble?.id, uid]); // Dependencies
 
   return (
-    <div
-      className="chat-container flex flex-col"
-      style={{
-        touchAction: 'none',
-        overscrollBehavior: 'none',
-        WebkitOverflowScrolling: 'touch',
-        userSelect: 'none',
-        minHeight: '100dvh',
-        overflow: 'hidden',
-        background: '#FFF9ED',
-        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)'
-      }}
-    >
-<div className="fixed top-0 left-0 z-50 w-full">
-  {/* Header */}
-  <header
-    className="w-full z-50 bg-[#FFF9ED] text-yellow-900 shadow-sm border-b border-yellow-300 px-4 py-3 flex items-center justify-between backdrop-blur-md"
-    style={{ paddingTop: `calc(env(safe-area-inset-top, 1rem) + 4px)` }}
-  >
-    <div className="flex items-center gap-2">
-      <button className="p-1 -m-1 touch-manipulation active:scale-95">
-        <ArrowLeft className="w-7 h-7 text-yellow-800" />
-      </button>
-    </div>
-    <div className="flex items-center gap-2" />
-    <button
-      className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-full shadow transition touch-manipulation active:scale-95
-      bg-yellow-200/80 text-yellow-900"
-      aria-label="Reflect bubble"
-    >
-      <span role="img" aria-label="sparkle" className="text-xl">✨</span>
-      <span className="ml-0.5 font-semibold">{reflectionsCount || 0}</span>
-    </button>
-  </header>
+<div
+  className="chat-container flex flex-col"
+  style={{
+    touchAction: 'none',
+    overscrollBehavior: 'none',
+    WebkitOverflowScrolling: 'touch',
+    userSelect: 'none',
+    minHeight: '100dvh',
+    background: '#FFF9ED',
+    paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
+    overflowY: 'auto',
+  }}
+>
 
-  {/* Info Card */}
-  <div className="bg-white rounded-b-2xl px-4 py-3 shadow-md border-x border-b border-yellow-200 flex flex-col gap-1">
-    <div className="flex items-center justify-between">
-    <h1 className="font-semibold text-lg">{bubble?.name || 'Untitled'}</h1>
-<p className="text-xs text-muted-foreground">{bubble?.topic || 'Senza categoria'}</p>
+<div className="flex flex-col h-screen bg-[#FFF9ED]">
+    {/* Info Card Fissa */}
+    <div className="relative z-10 bg-white rounded-b-2xl shadow-sm border-b border-yellow-300">
+      <div className="flex items-start justify-between px-4 pt-3 pb-2">
+        <div>
+          <h1 className="text-lg font-semibold leading-none">{bubble?.name || 'Untitled'}</h1>
+          <p className="text-sm text-muted-foreground">{bubblePrompt || "..."}</p>
+          <p className="mt-1 text-xl">{timerText || "∞"}</p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <p className="text-sm font-medium text-right text-gray-700">
+            {bubble?.topic || 'Senza categoria'}
+          </p>
+          <button
+  onClick={toggleReflection}
+  className="flex items-center gap-1 px-2 py-1 rounded-full shadow transition active:scale-95 bg-yellow-200/80 text-yellow-900"
+  aria-label="Reflect bubble"
+>
+  <span role="img" aria-label="sparkle" className="text-xl">✨</span>
+  <span className="ml-0.5 font-semibold">{bubble?.reflections || 0}</span>
+</button>
 
+        </div>
+      </div>
     </div>
-    <div className="text-sm text-yellow-800">{bubblePrompt || "..."}</div>
-    <div className="flex items-center gap-1 text-sm font-mono text-yellow-800 pt-1">
-      ⏳ {timerText || "∞"}
-    </div>
-  </div>
-</div>
-
 
 
 
@@ -1601,9 +1605,12 @@ const bubbleCategory = bubble?.category || '';
             />
           </div>
         )}
-      </div>
-    </div>
-  );
+        </div> {/* chiude .chat-container */}
+        </div> {/* chiude fixed top wrapper */}
+        </div>
+      );
 }
+
+
 
 export default ChatView;

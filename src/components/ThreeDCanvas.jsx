@@ -58,7 +58,7 @@ function lerpColor(a, b, t) {
   return '#' + ((1 << 24) + (Math.round(rr) << 16) + (Math.round(rg) << 8) + Math.round(rb)).toString(16).slice(1);
 }
 
-const Bubble = memo(({
+const Bubble = memo(React.forwardRef(({
   idx,
   topic,
   reflections,
@@ -72,7 +72,7 @@ const Bubble = memo(({
   maxReflections,
   isNew,
   canvasActive,
-}) => {
+}, ref) => {
   const safeReflections = typeof reflections === 'number' ? reflections : 0;
   const safeUserCount = typeof userCount === 'number' ? userCount : 0;
 
@@ -93,11 +93,11 @@ const Bubble = memo(({
   const sphereGlowColor = reflectNorm > 0.9 ? maxGlow : GLOW_COLOR;
   const glowStrength = 0.21 + reflectNorm * 1.8;
 
-  const ref = useRef();
+  const groupRef = useRef();
   const posRef = useRef({ x: 0, y: 0, z: 0 });
 
   useFrame(({ clock }) => {
-    if (!ref.current || !orbitCenters[idx]) return;
+    if (!groupRef.current || !orbitCenters[idx]) return;
     const t = clock.getElapsedTime() * orbitCenters[idx].speed;
     const center = {
       x: orbitCenters[idx].radius * Math.sin(t + orbitCenters[idx].offset) * Math.cos(orbitCenters[idx].inclination),
@@ -140,9 +140,9 @@ const Bubble = memo(({
 
     posRef.current = pos;
     setPositions(idx, { ...pos, radius: dynamicRadius });
-    ref.current.position.set(pos.x, pos.y, pos.z);
-    ref.current.rotation.y += 0.002;
-    ref.current.rotation.x += 0.0015;
+    groupRef.current.position.set(pos.x, pos.y, pos.z);
+    groupRef.current.rotation.y += 0.002;
+    groupRef.current.rotation.x += 0.0015;
   });
 
   const [hovered, setHovered] = useState(false);
@@ -193,7 +193,7 @@ const Bubble = memo(({
 
   return (
     <AnimatedGroup
-      ref={ref}
+      ref={groupRef}
       onPointerOver={handleEnter}
       onPointerOut={handleLeave}
       onClick={() => onClick(topic)}
@@ -263,7 +263,7 @@ const Bubble = memo(({
       </Html>
     </AnimatedGroup>
   );
-});
+}));
 
 const PlanetCore = memo(() => (
   <mesh receiveShadow>
