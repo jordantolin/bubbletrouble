@@ -14,6 +14,7 @@ import { OrbitControls, Html } from '@react-three/drei';
 import { useSpring, animated, to } from '@react-spring/three';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@supabase/auth-helpers-react';
+import { Bell } from 'lucide-react';
 
 import DesktopTooltip from './DesktopTooltip';
 import MobileTooltip from './MobileTooltip';
@@ -21,6 +22,7 @@ import TopBubblesFeed from './TopBubblesFeed';
 import ToastNotification from './ToastNotification';
 import CreateBubbleModal from './CreateBubbleModal';
 import MobileTopBubblesSheet from './MobileTopBubblesSheet';
+import NotificationDropdown from './NotificationDropdown';
 
 import { createBubble } from '../api/bubbles';
 import { supabase } from '../supabaseClient';
@@ -329,6 +331,7 @@ const ThreeDCanvas = memo(({ bubbles, onBubbleClick, showIntro }) => {
   const [canvasActive, setCanvasActive] = useState(true);
   const [loading, setLoading] = useState(true);
   const [newBubbleId, setNewBubbleId] = useState(null);
+  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
   const toastNotifications = useNotificationsStore(state => state.notifications);
   const showToast = useNotificationsStore(state => state.showToast);
   const clearToast = useNotificationsStore(state => state.clearToast);
@@ -475,14 +478,23 @@ const ThreeDCanvas = memo(({ bubbles, onBubbleClick, showIntro }) => {
   return (
     <>
       {loading && <div className="loading-indicator">Loading...</div>}
-
-      {toastNotifications.length > 0 && (
-        <ToastNotification
-          title={toastNotifications[0].title}
-          message={toastNotifications[0].message}
-          onClose={clearToast}
-        />
-      )}
+      <header className="absolute top-0 z-50 w-full flex justify-between items-center px-4 py-2 pointer-events-none">
+        <div className="text-xl font-bold text-[#222] pointer-events-auto">Bubble Trouble</div>
+        <div className="relative pointer-events-auto">
+          <button onClick={() => setShowNotificationDropdown(prev => !prev)} className="focus:outline-none">
+            <Bell className="w-6 h-6 text-[#222]" />
+          </button>
+          {toastNotifications.length > 0 && (
+            <div
+              onClick={() => setShowNotificationDropdown(prev => !prev)}
+              className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center cursor-pointer"
+            >
+              {toastNotifications.length}
+            </div>
+          )}
+          <NotificationDropdown isOpen={showNotificationDropdown} onClose={() => setShowNotificationDropdown(false)} />
+        </div>
+      </header>
 
       <CreateBubbleModal
         open={showModal}

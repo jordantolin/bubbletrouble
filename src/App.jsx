@@ -72,7 +72,6 @@ function App() {
 
   // ✅ BLOCCO DI SICUREZZA
   if (!authChecked) return null;
-  if (!user) return <AuthForm />;
 
   return (
     <SessionContextProvider supabaseClient={supabase} initialSession={session}>
@@ -82,15 +81,19 @@ function App() {
         ) : (
           <>
             {streak && <StreakPopup count={streak} onClose={() => setStreak(null)} />}
-
             <InstallPrompt />
-
             <Routes>
-              <Route path="/" element={<MainApp />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/chat/:topic" element={<ChatView />} />
-              <Route path="/profile/:id" element={<PublicProfile />} />
-              <Route path="/bubble-expired" element={<BubbleExpired />} />
+              {!user ? (
+                <Route path="/*" element={<AuthForm />} />
+              ) : (
+                <>
+                  <Route path="/" element={<MainApp />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/chat/:topic" element={<ChatView />} />
+                  <Route path="/profile/:id" element={<PublicProfile />} />
+                  <Route path="/bubble-expired" element={<BubbleExpired />} />
+                </>
+              )}
             </Routes>
           </>
         )}
