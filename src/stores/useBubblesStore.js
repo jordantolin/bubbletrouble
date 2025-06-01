@@ -93,6 +93,13 @@ export const useBubblesStore = create(
       
         set({ bubbles });
       
+
+        // 🔥 AGGIUNGI QUESTO: sincronizza le reflection per ogni bubble
+for (const b of bubbles) {
+  await get().fetchReflectionsForBubbleAndUpdateStore(b.id);
+}
+
+
         // 🔥 AGGIUNGI QUESTO: sincronizza le reflection per ogni bubble
         for (const b of bubbles) {
           await get().fetchReflectionsForBubbleAndUpdateStore(b.id);

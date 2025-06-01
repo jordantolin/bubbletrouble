@@ -1,7 +1,19 @@
-import React from "react";
+// src/components/TopBubblesFeed.jsx
+import React, { useEffect } from "react";
+import { useBubblesStore } from "../stores/useBubblesStore";
 
-const TopBubblesFeed = ({ bubbles, onSelect }) => {
-  const topBubbles = [...bubbles].sort((a, b) => b.reflections - a.reflections).slice(0, 5);
+const TopBubblesFeed = ({ onSelect }) => {
+  const bubbles = useBubblesStore(state => state.bubbles);
+  const fetchAndSyncBubbles = useBubblesStore(state => state.fetchAndSyncBubbles);
+
+  useEffect(() => {
+    fetchAndSyncBubbles();
+  }, [fetchAndSyncBubbles]);
+
+  const topBubbles = [...bubbles]
+    .filter(b => typeof b.reflections === "number")
+    .sort((a, b) => b.reflections - a.reflections)
+    .slice(0, 5);
 
   return (
     <div
@@ -20,7 +32,7 @@ const TopBubblesFeed = ({ bubbles, onSelect }) => {
           <li
             key={bubble.id}
             className="flex items-center gap-2 p-2 rounded-xl cursor-pointer hover:bg-yellow-100 transition"
-            onClick={() => onSelect(bubble)}
+            onClick={() => onSelect?.(bubble)}
             style={{
               fontWeight: 600,
               fontSize: 16,
@@ -30,7 +42,9 @@ const TopBubblesFeed = ({ bubbles, onSelect }) => {
             }}
           >
             <span className="truncate">{bubble.name || bubble.title || "[NO NAME]"}</span>
-            <span className="ml-auto text-yellow-900 bg-yellow-200 px-2 py-1 rounded text-xs">{bubble.reflections} ✨</span>
+            <span className="ml-auto text-yellow-900 bg-yellow-200 px-2 py-1 rounded text-xs">
+              {bubble.reflections} ✨
+            </span>
           </li>
         ))}
       </ul>

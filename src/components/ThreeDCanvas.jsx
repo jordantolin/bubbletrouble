@@ -193,75 +193,80 @@ const Bubble = memo(React.forwardRef(({
 
   return (
     <AnimatedGroup
-      ref={groupRef}
-      onPointerOver={handleEnter}
-      onPointerOut={handleLeave}
-      onClick={() => onClick(topic)}
-      scale={to([scale, pulse, bubbleScale], (s, p, b) => s * p * b)}
-      castShadow
-      receiveShadow
-      className="cursor-pointer"
+  ref={(el) => {
+    groupRef.current = el;
+    if (typeof ref === 'function') ref(el);
+    else if (ref) ref.current = el;
+  }}
+  onPointerOver={handleEnter}
+  onPointerOut={handleLeave}
+  onClick={() => onClick(topic)}
+  scale={to([scale, pulse, bubbleScale], (s, p, b) => s * p * b)}
+  castShadow
+  receiveShadow
+  className="cursor-pointer"
+>
+  <animated.mesh
+    geometry={new THREE.SphereGeometry(dynamicRadius, isMobile ? 24 : 48, isMobile ? 24 : 48)}
+    scale={bubbleScale}
+    opacity={bubbleOpacity}
+  >
+    <animated.meshStandardMaterial
+      color={hovered ? HOVER_BUBBLE_COLOR : bubbleColor}
+      roughness={0.35}
+      metalness={0.2}
+      emissive={baseEmissive}
+      emissiveIntensity={emissiveIntensity}
+      transparent={false}
+      opacity={1}
+    />
+  </animated.mesh>
+
+  <animated.mesh
+    geometry={new THREE.SphereGeometry(dynamicRadius * 1.18, isMobile ? 16 : 32, isMobile ? 16 : 32)}
+    visible={hovered || reflectNorm > 0.35 || recentlyCreated}
+    scale={bubbleScale}
+    opacity={bubbleOpacity}
+  >
+    <meshStandardMaterial
+      color={sphereGlowColor}
+      roughness={0.7}
+      metalness={0.02}
+      transparent
+      opacity={glow.to(g => Math.max(g, 0.13 + reflectNorm * 0.26))}
+      emissive={sphereGlowColor}
+      emissiveIntensity={glow.to(g => 0.6 + g * 1.25 + reflectNorm * 2.1 + (recentlyCreated ? 1.8 : 0))}
+    />
+  </animated.mesh>
+
+  <Html distanceFactor={10} style={{ pointerEvents: 'none', userSelect: 'none', marginTop: -12 }}>
+    <div
+      className="font-semibold font-elegant"
+      style={{
+        fontSize: labelFontSize,
+        color: LABEL_COLOR,
+        background: 'rgba(255,255,240,0.94)',
+        borderRadius: '1.5em',
+        padding: isMobile ? '4px 10px' : '7px 18px',
+        boxShadow: hovered
+          ? '0 3px 14px 1px #ffd60044'
+          : '0 1px 8px 0 rgba(250,204,21,0.08), 0 0.5px 2px 0 rgba(0,0,0,0.03)',
+        minWidth: 60,
+        maxWidth: isMobile ? 80 : 150,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        margin: '0 auto',
+        pointerEvents: 'none',
+        userSelect: 'none',
+        letterSpacing: 0.02,
+      }}
     >
-      <animated.mesh
-        geometry={new THREE.SphereGeometry(dynamicRadius, isMobile ? 24 : 48, isMobile ? 24 : 48)}
-        scale={bubbleScale}
-        opacity={bubbleOpacity}
-      >
-        <animated.meshStandardMaterial
-          color={hovered ? HOVER_BUBBLE_COLOR : bubbleColor}
-          roughness={0.35}
-          metalness={0.2}
-          emissive={baseEmissive}
-          emissiveIntensity={emissiveIntensity}
-          transparent={false}
-          opacity={1}
-        />
-      </animated.mesh>
+      {topic.name || topic.title || "[NO NAME]"}
+    </div>
+  </Html>
+</AnimatedGroup>
 
-      <animated.mesh
-        geometry={new THREE.SphereGeometry(dynamicRadius * 1.18, isMobile ? 16 : 32, isMobile ? 16 : 32)}
-        visible={hovered || reflectNorm > 0.35 || recentlyCreated}
-        scale={bubbleScale}
-        opacity={bubbleOpacity}
-      >
-        <meshStandardMaterial
-          color={sphereGlowColor}
-          roughness={0.7}
-          metalness={0.02}
-          transparent
-          opacity={glow.to(g => Math.max(g, 0.13 + reflectNorm * 0.26))}
-          emissive={sphereGlowColor}
-          emissiveIntensity={glow.to(g => 0.6 + g * 1.25 + reflectNorm * 2.1 + (recentlyCreated ? 1.8 : 0))}
-        />
-      </animated.mesh>
-
-      <Html distanceFactor={10} style={{ pointerEvents: 'none', userSelect: 'none', marginTop: -12 }}>
-        <div
-          className="font-semibold font-elegant"
-          style={{
-            fontSize: labelFontSize,
-            color: LABEL_COLOR,
-            background: 'rgba(255,255,240,0.94)',
-            borderRadius: '1.5em',
-            padding: isMobile ? '4px 10px' : '7px 18px',
-            boxShadow: hovered
-              ? '0 3px 14px 1px #ffd60044'
-              : '0 1px 8px 0 rgba(250,204,21,0.08), 0 0.5px 2px 0 rgba(0,0,0,0.03)',
-            minWidth: 60,
-            maxWidth: isMobile ? 80 : 150,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            margin: '0 auto',
-            pointerEvents: 'none',
-            userSelect: 'none',
-            letterSpacing: 0.02,
-          }}
-        >
-          {topic.name || topic.title || "[NO NAME]"}
-        </div>
-      </Html>
-    </AnimatedGroup>
   );
 }));
 
