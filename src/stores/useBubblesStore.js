@@ -9,7 +9,7 @@ import { fetchActiveBubbles } from '../api/bubbles';
 export const useBubblesStore = create(
   persist(
     (set, get) => ({
-      bubbles: [],
+      bubbles: [], 
 
       // Sostituisce tutte le bolle (usato solo dal fetch iniziale)
       setBubbles: (bubbles) => set({ bubbles }),
@@ -35,7 +35,15 @@ export const useBubblesStore = create(
         const data = await fetchActiveBubbles();
         console.log("DEBUG: fetchAndSyncBubbles SUPABASE DATA:", data);
 
-        set({ bubbles: Array.isArray(data) ? data : [] });
+        set({
+          bubbles: Array.isArray(data)
+            ? data.map(b => ({
+                ...b,
+                reflections: b.reflections || []
+              }))
+            : []
+        });
+        
 
         // Realtime subscription: ascolta tutte le modifiche su bubbles
         supabase

@@ -20,6 +20,10 @@ import {
   Pause
 } from 'lucide-react';
 import GiphySearch from './GiphySearch';
+import dayjs from 'dayjs';
+import duration from 'dayjs/plugin/duration';
+dayjs.extend(duration);
+
 
 // --- UPLOAD VERCEL BLOB: UNICA FUNZIONE --- //
 async function uploadToDropbox(file) {
@@ -261,9 +265,16 @@ function ChatView() {
   const { topic } = useParams(); // <-- topic qui è l'ID della bolla!
   const { bubbles, toggleReflect, hasUserReflected } = useBubblesStore();
   const bubble = bubbles.find(b => String(b.id) === String(topic));
+  const bubbleTitle = bubble?.title || '';
+const bubblePrompt = bubble?.prompt || '';
+const bubbleCategory = bubble?.category || '';
+
   if (!bubble) return <div>Caricamento...</div>;
 
   const [countdown, setCountdown] = useState(getBubbleCountdown(bubble.created_at));
+  
+  const reflectionsCount = bubble?.reflections?.length || 0;
+
 
 
   function clean(arr) {
@@ -335,6 +346,15 @@ function ChatView() {
   const audioRefs = useRef({});
   const lastMessageRef = useRef(null);
   const [isSending, setIsSending] = useState(false);
+  
+  const timerText = useMemo(() => {
+    if (!bubble?.expires_at) return '∞';
+    const diff = dayjs(bubble.expires_at).diff(dayjs());
+    if (diff <= 0) return '00:00:00';
+    return dayjs.duration(diff).format('HH:mm:ss');
+  }, [bubble]);
+  
+  
 
 
 
@@ -391,6 +411,10 @@ function ChatView() {
 
   const [reflectionCount, setReflectionCount] = useState(0);
   const [hasReflected, setHasReflected] = useState(false);
+
+  const xp = bubble?.xp || 0;
+
+  
 
   useEffect(() => {
     const initUser = async () => {
@@ -1142,68 +1166,44 @@ function ChatView() {
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)'
       }}
     >
-      {/* Header */}
-      <header
-        className="flex items-center justify-between px-4 py-3 bg-white/80 text-yellow-800 shadow-sm border-b border-yellow-200 relative z-30 backdrop-blur-md"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 1rem) + 4px)' }}
-      >
-        <button
-          onClick={() => navigate(-1)}
-          className="mr-2 p-1 -m-1 touch-manipulation active:scale-95"
-        >
-          <ArrowLeft className="w-7 h-7 text-yellow-800" />
-        </button>
-        <h2 className="text-base font-bold flex-1 truncate text-center pr-10">{bubble?.name || bubble?.title || 'Chat'}</h2>
+<div className="fixed top-0 left-0 z-50 w-full">
+  {/* Header */}
+  <header
+    className="w-full z-50 bg-[#FFF9ED] text-yellow-900 shadow-sm border-b border-yellow-300 px-4 py-3 flex items-center justify-between backdrop-blur-md"
+    style={{ paddingTop: `calc(env(safe-area-inset-top, 1rem) + 4px)` }}
+  >
+    <div className="flex items-center gap-2">
+      <button className="p-1 -m-1 touch-manipulation active:scale-95">
+        <ArrowLeft className="w-7 h-7 text-yellow-800" />
+      </button>
+    </div>
+    <div className="flex items-center gap-2" />
+    <button
+      className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-full shadow transition touch-manipulation active:scale-95
+      bg-yellow-200/80 text-yellow-900"
+      aria-label="Reflect bubble"
+    >
+      <span role="img" aria-label="sparkle" className="text-xl">✨</span>
+      <span className="ml-0.5 font-semibold">{reflectionsCount || 0}</span>
+    </button>
+  </header>
 
-        {bubble && (
-          <button
-            onClick={toggleReflection}
-            className={`absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-full shadow transition touch-manipulation active:scale-95
-              ${hasReflected ? 'bg-yellow-300 text-yellow-900' : 'bg-yellow-200/80 text-yellow-900'}
-            `}
-            aria-label="Reflect bubble"
-          >
-            <span role="img" aria-label="sparkle" className="text-xl">✨</span>
-            <span className="ml-0.5 font-semibold">{reflectionCount}</span>
-          </button>
-        )}
-      </header>
+  {/* Info Card */}
+  <div className="bg-white rounded-b-2xl px-4 py-3 shadow-md border-x border-b border-yellow-200 flex flex-col gap-1">
+    <div className="flex items-center justify-between">
+    <h1 className="font-semibold text-lg">{bubble?.name || 'Untitled'}</h1>
+<p className="text-xs text-muted-foreground">{bubble?.topic || 'Senza categoria'}</p>
 
-      {bubble && (
-        <div
-          className="sticky top-0 z-30 w-full bg-gradient-to-b from-[#FFF9ED] to-[#fffbe7] pb-1 shrink-0 px-4 pt-2"
-        >
-          <div
-            className="bg-yellow-100 text-yellow-900 px-4 pt-[env(safe-area-inset-top,1rem)] pb-3 flex items-center justify-between rounded-b-xl shadow-md z-30"
-            style={{ paddingTop: 'calc(env(safe-area-inset-top, 1rem) + 8px)' }}
-          >
-            <div className="w-full mx-auto max-w-xl bg-white rounded-2xl shadow-lg border border-yellow-100 px-5 py-4 flex flex-col gap-2 items-start">
-              <div className="w-full flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-xl text-yellow-700">{bubble.name}</span>
-                  <span className="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-900 text-xs font-semibold tracking-wide border border-yellow-200">
-                    {bubble.topic}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-yellow-400 text-lg">⏳</span>
-                  <span
-                    className="font-mono text-base text-yellow-800 px-2 py-0.5 rounded-lg bg-yellow-50 border border-yellow-200 shadow"
-                    style={{ letterSpacing: 1, minWidth: 86, textAlign: "center" }}
-                  >
-                    {countdown}
-                  </span>
-                </div>
-              </div>
-              {bubble.description && (
-                <div className="w-full text-gray-700 text-[15px] mt-1 leading-snug break-words">
-                  {bubble.description}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+    </div>
+    <div className="text-sm text-yellow-800">{bubblePrompt || "..."}</div>
+    <div className="flex items-center gap-1 text-sm font-mono text-yellow-800 pt-1">
+      ⏳ {timerText || "∞"}
+    </div>
+  </div>
+</div>
+
+
+
 
       {/* Messages */}
       <div
@@ -1213,7 +1213,7 @@ function ChatView() {
           scrollPaddingBottom: '1rem'
         }}
       >
-        {messages.map((msg, i) => {
+        {clean(messages).map((msg, i) => {
           const keySafe = msg.id
             ? `msg-${msg.id}-${i}`
             : `pending-${msg.content?.slice(0, 20)}-${msg.type}-${msg.user_id}-${i}`;
