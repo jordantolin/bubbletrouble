@@ -270,6 +270,9 @@ function ChatView() {
 
   const fetchReflectionsForBubbleAndUpdateStore = useBubblesStore(state => state.fetchReflectionsForBubbleAndUpdateStore);
 
+  const navigate = useNavigate();
+
+
 useEffect(() => {
   if (bubble?.id) {
     fetchReflectionsForBubbleAndUpdateStore(bubble.id);
@@ -288,28 +291,41 @@ const bubbleCategory = bubble?.category || '';
   const reflectionsCount = typeof bubble?.reflections === "number" ? bubble.reflections : 0;
 
   useEffect(() => {
-    let touchStartX = 0;
-    let touchEndX = 0;
+    let startX = 0;
+    let isSwiping = false;
   
     const handleTouchStart = (e) => {
-      touchStartX = e.changedTouches[0].screenX;
+      startX = e.touches[0].clientX;
+      isSwiping = true;
     };
   
-    const handleTouchEnd = (e) => {
-      touchEndX = e.changedTouches[0].screenX;v
-      if (touchEndX - touchStartX > 80) {
-        navigate('/'); // oppure navigate(-1) se vuoi tornare indietro nella cronologia
+    const handleTouchMove = (e) => {
+      if (!isSwiping) return;
+      const currentX = e.touches[0].clientX;
+      const deltaX = currentX - startX;
+  
+      // Swipe verso destra oltre soglia (tipo iOS back gesture)
+      if (deltaX > 80) {
+        isSwiping = false; // blocca swipe multipli
+        navigate('/', { replace: true }); // 🔁 naviga SUBITO senza "scatto"
       }
     };
   
-    window.addEventListener('touchstart', handleTouchStart);
+    const handleTouchEnd = () => {
+      isSwiping = false;
+    };
+  
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
     window.addEventListener('touchend', handleTouchEnd);
   
     return () => {
       window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, []);
+  }, [navigate]);
+  
   
 
 
@@ -327,6 +343,7 @@ const bubbleCategory = bubble?.category || '';
       )
     );
   }
+
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -377,7 +394,6 @@ const bubbleCategory = bubble?.category || '';
 
 
 
-  const navigate = useNavigate();
   const bottomRef = useRef(null);
   const audioRefs = useRef({});
   const lastMessageRef = useRef(null);
