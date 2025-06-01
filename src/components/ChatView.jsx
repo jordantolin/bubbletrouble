@@ -296,7 +296,7 @@ const bubbleCategory = bubble?.category || '';
     };
   
     const handleTouchEnd = (e) => {
-      touchEndX = e.changedTouches[0].screenX;
+      touchEndX = e.changedTouches[0].screenX;v
       if (touchEndX - touchStartX > 80) {
         navigate('/'); // oppure navigate(-1) se vuoi tornare indietro nella cronologia
       }
@@ -1214,7 +1214,7 @@ const bubbleCategory = bubble?.category || '';
   }}
 >
 
-<div className="flex flex-col h-screen bg-[#FFF9ED]">
+<div className="flex flex-col flex-1 bg-[#FFF9ED]" style={{ minHeight: 0 }}> {/* minHeight: 0 for flex shrink items */}
     {/* Info Card Fissa */}
     <div className="relative z-10 bg-white rounded-b-2xl shadow-sm border-b border-yellow-300">
       <div className="flex items-start justify-between px-4 pt-3 pb-2">
@@ -1247,7 +1247,7 @@ const bubbleCategory = bubble?.category || '';
         className="messages flex-1 overflow-y-auto overflow-x-hidden px-4 pt-2"
         style={{
           paddingBottom: '1rem',
-          scrollPaddingBottom: '1rem'
+          scrollPaddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 70px)'
         }}
       >
         {clean(messages).map((msg, i) => {
