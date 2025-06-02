@@ -14,7 +14,6 @@ import { OrbitControls, Html } from '@react-three/drei';
 import { useSpring, animated, to } from '@react-spring/three';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@supabase/auth-helpers-react';
-import { Bell } from 'lucide-react';
 
 import DesktopTooltip from './DesktopTooltip';
 import MobileTooltip from './MobileTooltip';
@@ -22,7 +21,6 @@ import TopBubblesFeed from './TopBubblesFeed';
 import ToastNotification from './ToastNotification';
 import CreateBubbleModal from './CreateBubbleModal';
 import MobileTopBubblesSheet from './MobileTopBubblesSheet';
-import NotificationDropdown from './NotificationDropdown';
 
 import { createBubble } from '../api/bubbles';
 import { supabase } from '../supabaseClient';
@@ -121,9 +119,9 @@ const Bubble = memo(React.forwardRef(({
 
     let pos = posRef.current;
     pos = {
-      x: pos.x + (center.x - pos.x) * 0.07,
-      y: pos.y + (center.y - pos.y) * 0.07,
-      z: pos.z + (center.z - pos.z) * 0.07,
+      x: pos.x + (center.x - pos.x) * 0.05,
+      y: pos.y + (center.y - pos.y) * 0.05,
+      z: pos.z + (center.z - pos.z) * 0.05,
     };
 
     for (let relax = 0; relax < 3; relax++) {
@@ -133,13 +131,14 @@ const Bubble = memo(React.forwardRef(({
         const d = Math.sqrt((pos.x - p.x) ** 2 + (pos.y - p.y) ** 2 + (pos.z - p.z) ** 2);
         const minDist = dynamicRadius + otherRadius + 0.18;
         if (d < minDist && d > 0) {
-          const overlap = (minDist - d) / 2;
+          const overlap = (minDist - d);
+          const force = overlap * 0.04;
           const nx = (pos.x - p.x) / d;
           const ny = (pos.y - p.y) / d;
           const nz = (pos.z - p.z) / d;
-          pos.x += nx * overlap;
-          pos.y += ny * overlap;
-          pos.z += nz * overlap;
+          pos.x += nx * force;
+          pos.y += ny * force;
+          pos.z += nz * force;
         }
       });
     }
@@ -211,95 +210,109 @@ const Bubble = memo(React.forwardRef(({
 
   return (
     <AnimatedGroup
-  ref={(el) => {
-    groupRef.current = el;
-    if (typeof ref === 'function') ref(el);
-    else if (ref) ref.current = el;
-  }}
-  onPointerOver={handleEnter}
-  onPointerOut={handleLeave}
-  onClick={() => onClick(topic)}
-  scale={to([scale, pulse, bubbleScale], (s, p, b) => s * p * b)}
-  castShadow
-  receiveShadow
-  className="cursor-pointer"
->
-  <animated.mesh
-geometry={new THREE.SphereGeometry(dynamicRadius, isMobile ? 18 : 48, isMobile ? 18 : 48)}
-scale={bubbleScale}
-    opacity={bubbleOpacity}
+    ref={(el) => {
+      groupRef.current = el;
+      if (typeof ref === 'function') ref(el);
+      else if (ref) ref.current = el;
+    }}
+    onPointerOver={handleEnter}
+    onPointerOut={handleLeave}
+    onClick={() => onClick(topic)}
+    scale={to([scale, pulse, bubbleScale], (s, p, b) => s * p * b)}
+    castShadow
+    receiveShadow
+    className="cursor-pointer"
   >
-    <animated.meshStandardMaterial
-      color={hovered ? HOVER_BUBBLE_COLOR : bubbleColor}
-      roughness={0.35}
-      metalness={0.2}
-      emissive={baseEmissive}
-      emissiveIntensity={emissiveIntensity}
-      transparent={false}
-      opacity={1}
-    />
-  </animated.mesh>
-
-  <animated.mesh
-    geometry={new THREE.SphereGeometry(dynamicRadius * 1.18, isMobile ? 16 : 32, isMobile ? 16 : 32)}
-    visible={hovered || reflectNorm > 0.35 || recentlyCreated}
-    scale={bubbleScale}
-    opacity={bubbleOpacity}
-  >
-<meshStandardMaterial
-  color={hovered ? '#fffac0' : sphereGlowColor}
-  roughness={0.7}
-  metalness={0.02}
-  transparent
-  opacity={glow.to(g => Math.max(g, 0.13 + reflectNorm * 0.26))}
-  emissive={sphereGlowColor}
-  emissiveIntensity={glow.to(g => 0.6 + g * 1.25 + reflectNorm * 2.1 + (recentlyCreated ? 1.8 : 0))}
-/>
-
-  </animated.mesh>
-
-  <Html distanceFactor={10} style={{ pointerEvents: 'none', userSelect: 'none', marginTop: -12 }}>
-    <div
-      className="font-semibold font-elegant"
-      style={{
-        fontSize: labelFontSize,
-        color: LABEL_COLOR,
-        background: 'rgba(255,255,240,0.94)',
-        borderRadius: '1.5em',
-        padding: isMobile ? '4px 10px' : '7px 18px',
-        boxShadow: hovered
-          ? '0 3px 14px 1px #ffd60044'
-          : '0 1px 8px 0 rgba(250,204,21,0.08), 0 0.5px 2px 0 rgba(0,0,0,0.03)',
-        minWidth: 60,
-        maxWidth: isMobile ? 80 : 150,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        margin: '0 auto',
-        pointerEvents: 'none',
-        userSelect: 'none',
-        letterSpacing: 0.02,
-      }}
+    <animated.mesh
+      geometry={new THREE.SphereGeometry(dynamicRadius, isMobile ? 18 : 48, isMobile ? 18 : 48)}
+      scale={bubbleScale}
+      opacity={bubbleOpacity}
     >
-      {topic.name || topic.title || "[NO NAME]"}
-    </div>
-  </Html>
-</AnimatedGroup>
-
+      <animated.meshStandardMaterial
+        color={hovered ? "#FFE46B" : bubbleColor} // colore giallo brillante quando hovered
+        roughness={0.28}
+        metalness={0.25}
+        emissive={hovered ? "#fff5d1" : baseEmissive}
+        emissiveIntensity={to([emissiveIntensity], (e) => 0.7 + e * 1.2)}
+        transparent={false}
+        opacity={1}
+      />
+    </animated.mesh>
+  
+    <animated.mesh
+      geometry={new THREE.SphereGeometry(dynamicRadius * 1.18, isMobile ? 16 : 32, isMobile ? 16 : 32)}
+      visible={hovered || reflectNorm > 0.35 || recentlyCreated}
+      scale={bubbleScale}
+      opacity={bubbleOpacity}
+    >
+      <meshStandardMaterial
+        color={'#fff4d8'}
+        roughness={0.55}
+        metalness={0.05}
+        transparent
+        opacity={glow.to(g => 0.28 + reflectNorm * 0.35)}
+        emissive={'#FFFBE8'}
+        emissiveIntensity={glow.to(g => (hovered ? 0.8 : 0.6) + g * 1.25 + reflectNorm * 2.1 + (recentlyCreated ? 1.8 : 0))}
+      />
+    </animated.mesh>
+  
+    <Html distanceFactor={10} style={{ pointerEvents: 'none', userSelect: 'none', marginTop: -12 }}>
+      <div
+        className="font-semibold font-elegant"
+        style={{
+          fontSize: labelFontSize,
+          color: LABEL_COLOR,
+          background: 'rgba(255,255,240,0.94)',
+          borderRadius: '1.5em',
+          padding: isMobile ? '4px 10px' : '7px 18px',
+          boxShadow: hovered
+            ? '0 3px 14px 1px #ffe46b88'
+            : '0 1px 8px 0 rgba(250,204,21,0.08), 0 0.5px 2px 0 rgba(0,0,0,0.03)',
+          minWidth: 60,
+          maxWidth: isMobile ? 80 : 150,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          margin: '0 auto',
+          pointerEvents: 'none',
+          userSelect: 'none',
+          letterSpacing: 0.02,
+        }}
+      >
+        {topic.name || topic.title || "[NO NAME]"}
+      </div>
+    </Html>
+  </AnimatedGroup>
+  
   );
 }));
 
 const PlanetCore = memo(() => (
-  <mesh receiveShadow>
-    <sphereGeometry args={[2.45, 40, 40]} />
-    <meshStandardMaterial
-      color="#f5f6f7"
-      roughness={0.35}
-      metalness={0.12}
-      emissive="#fbe7a7"
-      emissiveIntensity={0.16}
-    />
-  </mesh>
+  <group>
+    <mesh receiveShadow>
+      <sphereGeometry args={[2.45, 64, 64]} />
+      <meshStandardMaterial
+        color="#FFE680" // giallo oro pastello
+        roughness={0.18}
+        metalness={0.55}
+        emissive="#FFD700" // oro vivo
+        emissiveIntensity={0.65}
+      />
+    </mesh>
+
+    <mesh>
+      <sphereGeometry args={[2.52, 64, 64]} />
+      <meshStandardMaterial
+        color="#FFF9ED"
+        transparent
+        opacity={0.12}
+        emissive="#FFF3C3"
+        emissiveIntensity={0.6}
+        roughness={0.4}
+        metalness={0.1}
+      />
+    </mesh>
+  </group>
 ));
 
 class ErrorBoundary extends React.Component {
@@ -319,7 +332,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const ThreeDCanvas = memo(({ bubbles, onBubbleClick, showIntro }) => {
+const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro }, ref) => {
   const [positions, setPositionsState] = useState([]);
   const [orbitCenters, setOrbitCenters] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -331,7 +344,6 @@ const ThreeDCanvas = memo(({ bubbles, onBubbleClick, showIntro }) => {
   const [canvasActive, setCanvasActive] = useState(true);
   const [loading, setLoading] = useState(true);
   const [newBubbleId, setNewBubbleId] = useState(null);
-  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
   const toastNotifications = useNotificationsStore(state => state.notifications);
   const showToast = useNotificationsStore(state => state.showToast);
   const clearToast = useNotificationsStore(state => state.clearToast);
@@ -478,23 +490,14 @@ const ThreeDCanvas = memo(({ bubbles, onBubbleClick, showIntro }) => {
   return (
     <>
       {loading && <div className="loading-indicator">Loading...</div>}
-      <header className="absolute top-0 z-50 w-full flex justify-between items-center px-4 py-2 pointer-events-none">
-        <div className="text-xl font-bold text-[#222] pointer-events-auto">Bubble Trouble</div>
-        <div className="relative pointer-events-auto">
-          <button onClick={() => setShowNotificationDropdown(prev => !prev)} className="focus:outline-none">
-            <Bell className="w-6 h-6 text-[#222]" />
-          </button>
-          {toastNotifications.length > 0 && (
-            <div
-              onClick={() => setShowNotificationDropdown(prev => !prev)}
-              className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center cursor-pointer"
-            >
-              {toastNotifications.length}
-            </div>
-          )}
-          <NotificationDropdown isOpen={showNotificationDropdown} onClose={() => setShowNotificationDropdown(false)} />
-        </div>
-      </header>
+
+      {toastNotifications.length > 0 && (
+        <ToastNotification
+          title={toastNotifications[0].title}
+          message={toastNotifications[0].message}
+          onClose={clearToast}
+        />
+      )}
 
       <CreateBubbleModal
         open={showModal}
@@ -581,9 +584,25 @@ const ThreeDCanvas = memo(({ bubbles, onBubbleClick, showIntro }) => {
             performance={{ min: 0.8, max: 1 }}
           >
 <color attach="background" args={[isMobile ? '#FFF9ED' : '#FDF6E3']} />
-<ambientLight intensity={1.1} />
-            <pointLight position={[10, 10, 5]} intensity={1.4} />
-            <OrbitControls enableZoom enablePan={false} enableRotate maxDistance={30} minDistance={10} />
+<ambientLight intensity={0.85} />
+            <pointLight position={[10, 10, 5]} intensity={1.5} />
+            <directionalLight position={[0, 20, 20]} intensity={0.6} castShadow />
+<OrbitControls
+  enableZoom
+  enablePan={false}
+  enableRotate
+  maxDistance={30}
+  minDistance={10}
+  minPolarAngle={0}
+  maxPolarAngle={Math.PI} // mantiene valore completo
+  enableDamping
+  dampingFactor={0.07}
+  rotateSpeed={0.4}
+  makeDefault
+/>
+
+
+
             <PlanetCore />
             {Array.isArray(bubbles) &&
               Array.isArray(positions) &&
@@ -632,7 +651,7 @@ const ThreeDCanvas = memo(({ bubbles, onBubbleClick, showIntro }) => {
       </div>
     </>
   );
-});
+}));
 
-export default memo(ThreeDCanvas);
+export default ThreeDCanvas;
 
