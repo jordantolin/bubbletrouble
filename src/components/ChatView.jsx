@@ -1230,17 +1230,17 @@ const bubbleCategory = bubble?.category || '';
   }}
 >
 
-<div className="flex flex-col flex-1 bg-[#FFF9ED]" style={{ minHeight: 0 }}> {/* minHeight: 0 for flex shrink items */}
+<div className="flex flex-col flex-1 bg-[#FFF9ED] overflow-x-hidden" style={{ minHeight: 0 }}> {/* Main content scroll area */}
     {/* Info Card Fissa */}
     <div className="relative z-10 bg-white rounded-b-2xl shadow-sm border-b border-yellow-300">
       <div className="flex items-start justify-between px-4 pt-3 pb-2">
-        <div>
-          <h1 className="text-lg font-semibold leading-none">{bubble?.name || 'Untitled'}</h1>
-          <p className="text-sm text-muted-foreground">{bubblePrompt || "..."}</p>
+        <div className="min-w-0 mr-2"> {/* Added mr-2 for spacing, min-w-0 allows shrinking */}
+          <h1 className="text-lg font-semibold leading-none break-words">{bubble?.name || 'Untitled'}</h1>
+          <p className="text-sm text-muted-foreground break-words">{bubblePrompt || "..."}</p>
           <p className="mt-1 text-xl">{timerText || "∞"}</p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <p className="text-sm font-medium text-right text-gray-700">
+        <div className="flex flex-col items-end gap-2 min-w-0 shrink-0"> {/* min-w-0 allows shrinking, shrink-0 prevents it from shrinking too much if category is long */}
+          <p className="text-sm font-medium text-right text-gray-700 break-words">
             {bubble?.topic || 'Senza categoria'}
           </p>
           <button
@@ -1560,13 +1560,13 @@ const bubbleCategory = bubble?.category || '';
 
       {/* Input Bar - Footer */}
       <div
-        className="fixed left-0 right-0 z-50 bg-[#FFF9ED] border-t border-yellow-200 px-3 py-3 flex items-center gap-2 transition-all duration-300"
+        className="fixed inset-x-0 z-50 w-full bg-[#FFF9ED] border-t border-yellow-200 px-3 py-3 flex items-center gap-2 transition-all duration-300"
         style={{
           bottom: 'env(safe-area-inset-bottom)',
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+          boxShadow: '0 -2px 6px rgba(0, 0, 0, 0.05)',
           borderTopLeftRadius: '18px',
           borderTopRightRadius: '18px',
-          boxShadow: '0 -2px 6px rgba(0, 0, 0, 0.05)',
         }}
       >
         {showWarning && (
@@ -1580,7 +1580,7 @@ const bubbleCategory = bubble?.category || '';
         {/* Attachment */}
         <button
           onClick={() => fileRef.current.click()}
-          className="text-gray-500 hover:text-yellow-600 p-1.5 rounded-full active:scale-95 touch-manipulation transition"
+          className="text-gray-500 hover:text-yellow-600 p-1.5 rounded-full active:scale-95 touch-manipulation transition shrink-0"
         >
           <Paperclip className="w-5 h-5" />
         </button>
@@ -1588,7 +1588,7 @@ const bubbleCategory = bubble?.category || '';
         {/* GIF */}
         <button
           onClick={() => setShowGiphy(!showGiphy)}
-          className="text-yellow-600 font-semibold text-sm px-1 active:scale-95 touch-manipulation transition"
+          className="text-yellow-600 font-semibold text-sm px-1 active:scale-95 touch-manipulation transition shrink-0"
         >
           GIF
         </button>
@@ -1605,7 +1605,7 @@ const bubbleCategory = bubble?.category || '';
         <input
           type="text"
           inputMode="text"
-          className="flex-grow text-[17px] px-4 py-2.5 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 transition placeholder:text-gray-400"
+          className="flex-1 min-w-0 text-[17px] px-4 py-2.5 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 transition placeholder:text-gray-400"
           placeholder="Write a message..."
           value={input}
           onChange={e => setInput(e.target.value)}
@@ -1632,8 +1632,13 @@ const bubbleCategory = bubble?.category || '';
         <button
           ref={recordBtnRef}
           onPointerDown={recordPointerStart}
-          className={`p-1.5 rounded-full transition touch-manipulation active:scale-95 shrink-0 ${recording ? (cancelBySwipe ? 'bg-red-400 text-white' : 'bg-yellow-600 text-white') : 'text-gray-500 hover:text-yellow-600'
-            } ${cd > 0 ? 'opacity-50 pointer-events-none' : ''}`}
+          className={`p-1.5 rounded-full transition touch-manipulation active:scale-95 shrink-0 ${
+            recording
+              ? cancelBySwipe
+                ? 'bg-red-400 text-white'
+                : 'bg-yellow-600 text-white'
+              : 'text-gray-500 hover:text-yellow-600'
+          } ${cd > 0 ? 'opacity-50 pointer-events-none' : ''}`}
           disabled={recording || showRecConfirm || cd > 0}
           style={{ touchAction: 'none' }}
         >
