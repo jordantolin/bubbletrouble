@@ -2,32 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, User, Search } from 'lucide-react';
 import logo from '../assets/logobubbletrouble.png';
 import { useNavigate } from 'react-router-dom';
-import { useGamificationStore } from '../stores/useGamificationStore';
 import { useBubblesStore } from '../stores/useBubblesStore';
+import { useNotificationsStore } from '../stores/useNotificationsStore';
+import NotificationPanel from './NotificationPanel';
 
 const Header = ({ searchText, onSearchChange, onBubbleSelect }) => {
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const bubbles = useBubblesStore(state => state.bubbles);
 
-  // Stato locale per le notifiche del dropdown Header
-  const [notifications, setNotifications] = useState([
-    { id: 1, icon: '💬', text: 'New bubble reflection', read: false, visible: true, type: 'xp', amount: 20, reason: "Bubble reflected" },
-    { id: 2, icon: '🔥', text: 'Streak +1! Daily access.', read: false, visible: true, type: 'streak', count: 1 },
-    { id: 3, icon: '⭐️', text: 'Achievement unlocked!', read: false, visible: true, type: 'achievement', key: "reflection", description: "First Reflection" },
-    { id: 4, icon: '🎲', text: 'New game event starting soon', read: false, visible: true }
-  ]);
+  const globalNotifications = useNotificationsStore((state) => state.notifications);
+  const unreadCount = globalNotifications.filter(n => !n.isRead).length;
 
   const userMenuRef = useRef(null);
-  const notificationsRef = useRef(null);
+  const notificationsIconRef = useRef(null);
   const searchInputRef = useRef(null);
   const suggestionsRef = useRef(null);
   const navigate = useNavigate();
-
-  const showXPToast = useGamificationStore((s) => s.showXPToast);
-  const showStreakToast = useGamificationStore((s) => s.showStreakToast);
-  const showAchievementToast = useGamificationStore((s) => s.showAchievementToast);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -36,12 +28,6 @@ const Header = ({ searchText, onSearchChange, onBubbleSelect }) => {
         !event.target.closest('[aria-label="Profile"]')
       ) {
         setUserMenuOpen(false);
-      }
-      if (
-        notificationsRef.current && !notificationsRef.current.contains(event.target) &&
-        !event.target.closest('[aria-label="Notifications"]')
-      ) {
-        setNotificationsOpen(false);
       }
       if (suggestionsRef.current && !suggestionsRef.current.contains(event.target) && searchInputRef.current && !searchInputRef.current.contains(event.target)) {
         setSearchSuggestions([]);
@@ -77,47 +63,14 @@ const Header = ({ searchText, onSearchChange, onBubbleSelect }) => {
     }
   };
 
-  const onNotificationClick = (id) => {
-    const notif = notifications.find(n => n.id === id);
-
-    if (notif && !notif.read) {
-      if (notif.type === 'xp') {
-        showXPToast(notif.amount, notif.reason);
-      } else if (notif.type === 'streak') {
-        showStreakToast(notif.count);
-      } else if (notif.type === 'achievement') {
-        showAchievementToast(notif.description);
-        setTimeout(() => navigate('/profile#achievements'), 400);
-      }
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === id
-            ? { ...n, read: true }
-            : n
-        )
-      );
-      setTimeout(() => {
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === id
-              ? { ...n, visible: false }
-              : n
-          )
-        );
-      }, 800);
-    }
-  };
-
   const onProfileClick = () => {
     setUserMenuOpen(false);
     navigate('/profile');
   };
 
-  const unreadCount = notifications.filter(n => !n.read && n.visible).length;
-
   return (
     <header
-      className="fixed top-0 left-0 w-full z-[9999] px-4 pt-3 pb-2 bg-[#FFF9ED] bg-opacity-80 backdrop-blur-xl shadow-xl rounded-b-[32px] select-none"
+      className="fixed top-0 left-0 w-full z-[999] px-4 pt-3 pb-2 bg-[#FFF9ED] bg-opacity-80 backdrop-blur-xl shadow-xl rounded-b-[32px] select-none"
       style={{
         WebkitTransform: 'translateZ(0)',
         transform: 'translateZ(0)',
@@ -157,7 +110,7 @@ const Header = ({ searchText, onSearchChange, onBubbleSelect }) => {
                     onClick={() => handleSuggestionClick(bubble)}
                     className="px-4 py-2.5 text-sm text-yellow-800 hover:bg-yellow-100 cursor-pointer transition-colors duration-150"
                   >
-                    {bubble.name} <span className="text-xs text-gray-500">({bubble.topic})</span>
+                    {bubble.name} {bubble.topic && <span className="text-xs text-gray-500">({bubble.topic})</span>}
                   </li>
                 ))}
               </ul>
@@ -166,10 +119,11 @@ const Header = ({ searchText, onSearchChange, onBubbleSelect }) => {
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="relative" ref={notificationsRef}>
+          <div className="relative">
             <button
+              ref={notificationsIconRef}
               className="relative rounded-full p-2 bg-white/40 backdrop-blur-sm shadow-md hover:scale-[1.07] transition-transform focus:outline-none"
-              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
               aria-label="Notifications"
             >
               <Bell className="text-yellow-600" size={22} />
@@ -179,35 +133,11 @@ const Header = ({ searchText, onSearchChange, onBubbleSelect }) => {
                 </span>
               )}
             </button>
-
-            {notificationsOpen && (
-              <div
-                className="absolute right-0 mt-2 w-64 bg-white/90 backdrop-blur-md rounded-lg shadow-lg z-50 border border-yellow-200"
-                style={{ animation: 'fadeIn 0.3s ease forwards' }}
-              >
-                <ul className="text-sm text-gray-700 max-h-48 overflow-auto">
-                  {notifications.filter(n => n.visible).map(({ id, icon, text, read }) =>
-                    <li
-                      key={id}
-                      onClick={() => onNotificationClick(id)}
-                      className={`flex items-center gap-3 px-4 py-2 cursor-pointer border-b border-yellow-100 hover:bg-yellow-100 transition-colors duration-300 select-none ${read ? 'opacity-50 line-through' : 'opacity-100'
-                        }`}
-                      style={{
-                        transition: 'opacity 0.3s ease, max-height 0.3s ease',
-                        maxHeight: '1000px',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <span role="img" aria-label="notification-icon" className="select-none">{icon}</span>
-                      <span>{text}</span>
-                    </li>
-                  )}
-                  {notifications.filter(n => n.visible).length === 0 && (
-                    <li className="px-4 py-2 text-center text-gray-500">No new notifications</li>
-                  )}
-                </ul>
-              </div>
-            )}
+            <NotificationPanel 
+              isOpen={isNotificationPanelOpen} 
+              onClose={() => setIsNotificationPanelOpen(false)} 
+              anchorRef={notificationsIconRef} 
+            />
           </div>
 
           <div className="relative" ref={userMenuRef}>
@@ -220,8 +150,7 @@ const Header = ({ searchText, onSearchChange, onBubbleSelect }) => {
             </button>
             {userMenuOpen && (
               <div
-                className="absolute right-0 mt-2 w-48 bg-white/70 backdrop-blur-md rounded-lg shadow-lg z-50 border border-yellow-200"
-                style={{ animation: 'fadeIn 0.3s ease forwards' }}
+                className="absolute right-0 mt-2 w-48 bg-white/70 backdrop-blur-md rounded-lg shadow-lg z-50 border border-yellow-200 animate-fadeIn"
               >
                 <ul className="text-sm text-gray-700">
                   <li
@@ -238,14 +167,6 @@ const Header = ({ searchText, onSearchChange, onBubbleSelect }) => {
           </div>
         </div>
       </div>
-      <style>
-        {`
-          @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-        `}
-      </style>
     </header>
   );
 };
