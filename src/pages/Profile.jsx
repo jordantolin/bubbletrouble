@@ -34,6 +34,13 @@ const Profile = () => {
   const prevXP = LEVELS[level] ?? 0;
   const xpPercent = Math.min(100, ((xp - prevXP) / (nextXP - prevXP)) * 100);
 
+  // Helper to format date
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
   const fetchUser = async () => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) return;
@@ -104,7 +111,13 @@ if (!aError) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 backdrop-blur">
-      <div className="relative w-full max-w-md mx-auto bg-white rounded-3xl shadow-xl p-5 flex flex-col gap-5 max-h-[95dvh] overflow-y-auto">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.3 }}
+        className="relative w-full max-w-md mx-auto bg-white rounded-3xl shadow-xl p-5 flex flex-col gap-5 max-h-[95dvh] overflow-y-auto scrollbar-thin scrollbar-thumb-yellow-400 scrollbar-track-yellow-100"
+      >
         <button
           onClick={() => navigate("/")}
           className="absolute top-4 left-4 z-20 bg-yellow-100 hover:bg-yellow-200 text-yellow-600 rounded-full p-2 shadow-md active:scale-95 transition"
@@ -226,35 +239,53 @@ if (!aError) {
           </div>
         </section>
 
-        {achievements.length > 0 && (
-  <section className="w-full mt-6 border-t pt-4 border-yellow-100">
-    <h3 className="text-lg font-semibold mb-2 text-yellow-800">🏆 Obiettivi Sbloccati</h3>
+        <section className="w-full mt-5 border-t pt-4 border-yellow-100">
+          <h3 className="text-lg font-semibold mb-3 border-b border-yellow-200 pb-1 text-yellow-800">🏆 Achievements</h3>
+          {achievements.length > 0 ? (
+            <motion.div 
+              className="grid grid-cols-2 md:grid-cols-3 gap-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ staggerChildren: 0.1, delayChildren: 0.2 }}
+            >
+              {achievements.map((a, index) => (
+                <motion.div
+                  key={a.id || index} // Use index as fallback key if a.id is not present
+                  className="flex flex-col items-center text-center transition-all duration-300 ease-in-out transform hover:scale-105 rounded-xl p-3 bg-white shadow-sm border border-yellow-200 hover:shadow-yellow-300/50 hover:border-yellow-300"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                >
+                  <div className="w-16 h-16 rounded-full bg-yellow-50 border-2 border-yellow-300 flex items-center justify-center shadow-md mb-2 transition-all duration-300 hover:shadow-lg hover:shadow-yellow-400/50 hover:border-yellow-400">
+                    {a.icon ? (
+                        <img
+                        src={a.icon}
+                        alt={a.title || 'Achievement icon'}
+                        className="w-10 h-10 object-contain transition-transform duration-300 group-hover:scale-110"
+                        />
+                    ) : (
+                        <span className="text-3xl">🏅</span> // Fallback icon
+                    )}
+                  </div>
+                  <div className="font-bold text-sm text-yellow-900">{a.title || 'Achievement'}</div>
+                  {a.description && (
+                    <p className="text-xs text-yellow-700 mt-0.5 px-1">{a.description}</p>
+                  )}
+                  {a.achieved_at && (
+                    <p className="text-xs text-yellow-500 italic mt-1">{formatDate(a.achieved_at)}</p>
+                  )}
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <p className="text-center text-yellow-600 italic py-4">Nessun achievement ancora sbloccato...</p>
+          )}
+        </section>
 
-    <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-      {achievements.map((a) => (
-        <div
-          key={a.id}
-          className="flex flex-col items-center text-center transition transform hover:scale-105 hover:shadow-xl rounded-xl p-2 bg-yellow-50 border border-yellow-200 shadow-inner"
-        >
-          <div className="w-14 h-14 rounded-full bg-white border-2 border-yellow-300 flex items-center justify-center shadow-sm">
-            <img
-              src={a.icon}
-              alt={a.title}
-              className="w-8 h-8 object-contain"
-            />
-          </div>
-          <div className="text-[11px] font-semibold text-yellow-900 mt-1">{a.title}</div>
-        </div>
-      ))}
-    </div>
-  </section>
-)}
-
-
-        <div className="mt-6 flex justify-center">
+        <div className="mt-auto pt-6 flex justify-center">
           <LogoutButton />
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

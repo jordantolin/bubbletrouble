@@ -1,6 +1,7 @@
 // src/stores/useGamificationStore.js
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { supabase } from "../supabaseClient"; // Import Supabase client
 
 const LEVELS = [0, 50, 150, 350, 700, 1200, 2000, 3200, 5000];
 
@@ -77,6 +78,21 @@ export const useGamificationStore = create(
             unlockedAt: todayISO()
           });
         }
+
+        // Sync with Supabase
+        (async () => {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              await supabase
+                .from("profiles")
+                .update({ xp: newXP, level: newLevel })
+                .eq("id", user.id);
+            }
+          } catch (error) {
+            console.error("Error syncing XP with Supabase:", error);
+          }
+        })();
       },
 
       incrementReflects: () => {
@@ -106,7 +122,8 @@ export const useGamificationStore = create(
       addStreak: () => {
         const oldStreak = get().streak;
         const newStreak = oldStreak + 1;
-        set({ streak: newStreak, lastActiveDay: todayISO() });
+        const newLastActiveDay = todayISO();
+        set({ streak: newStreak, lastActiveDay: newLastActiveDay });
 
         // Gamification toast (interno)
         get().addToast({
@@ -123,6 +140,21 @@ export const useGamificationStore = create(
             unlockedAt: todayISO()
           });
         }
+
+        // Sync with Supabase
+        (async () => {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              await supabase
+                .from("profiles")
+                .update({ streak: newStreak, last_active_day: newLastActiveDay })
+                .eq("id", user.id);
+            }
+          } catch (error) {
+            console.error("Error syncing streak with Supabase:", error);
+          }
+        })();
       },
 
       unlockAchievement: (achievement) => {
@@ -145,6 +177,40 @@ export const useGamificationStore = create(
           //   duration: 4000,
           //   meta: { key: achievement.key }
           // });
+
+          // Sync with Supabase
+          (async () => {
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user) {
+                // Check for duplicates
+                const { data: existingAchievement, error: selectError } = await supabase
+                  .from("achievements")
+                  .select("achievement_key")
+                  .eq("user_id", user.id)
+                  .eq("achievement_key", achievement.key)
+                  .single();
+
+                if (selectError && selectError.code !== 'PGRST116') { // PGRST116: 'Searched for a single row, but multiple rows were found' or 'Searched for a single row, but no rows were found'
+                  console.error("Error checking existing achievement:", selectError);
+                  return;
+                }
+                
+                if (!existingAchievement) {
+                  await supabase
+                    .from("achievements")
+                    .insert({
+                      user_id: user.id,
+                      achievement_key: achievement.key,
+                      achieved_at: achievement.unlockedAt,
+                      // description: achievement.description // Assuming description is not in the DB table as per requirements
+                    });
+                }
+              }
+            } catch (error) {
+              console.error("Error syncing achievement with Supabase:", error);
+            }
+          })();
         }
       },
 
