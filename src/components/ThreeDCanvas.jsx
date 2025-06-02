@@ -106,35 +106,43 @@ const Bubble = memo(React.forwardRef(({
 
   const groupRef = useRef();
   const posRef = useRef(new THREE.Vector3(0, 0, 0));
-
-  useEffect(() => {
-    if (groupRef.current && orbitCenters[idx]) {
-      const t = Math.random() * Math.PI * 2;
-      const initialOrbitPos = {
-        x: orbitCenters[idx].radius * Math.sin(t + orbitCenters[idx].offset) * Math.cos(orbitCenters[idx].inclination),
-        y: orbitCenters[idx].radius * Math.sin(t + orbitCenters[idx].offset) * Math.sin(orbitCenters[idx].inclination),
-        z: orbitCenters[idx].radius * Math.cos(t + orbitCenters[idx].offset),
-      };
-      groupRef.current.position.set(initialOrbitPos.x, initialOrbitPos.y, initialOrbitPos.z);
-      posRef.current.copy(groupRef.current.position);
-    }
-  }, [idx, orbitCenters]);
+  const targetPositionRef = useRef(new THREE.Vector3(0, 0, 0));
+  const lastTForOrbitUpdateRef = useRef(0);
+  const hasInitializedRef = useRef(false);
+  const MIN_DISTANCE_TO_UPDATE = 0.001;
+  const T_UPDATE_THRESHOLD = 0.001;
+  const MAX_ORBIT_RADIUS_CLAMP = 9.5;
 
   useFrame(({ clock }) => {
     if (!groupRef.current || !orbitCenters[idx]) return;
+
     const t = clock.getElapsedTime() * orbitCenters[idx].speed;
-    const center = {
-      x: orbitCenters[idx].radius * Math.sin(t + orbitCenters[idx].offset) * Math.cos(orbitCenters[idx].inclination),
-      y: orbitCenters[idx].radius * Math.sin(t + orbitCenters[idx].offset) * Math.sin(orbitCenters[idx].inclination),
-      z: orbitCenters[idx].radius * Math.cos(t + orbitCenters[idx].offset),
-    };
 
-    groupRef.current.position.lerp(new THREE.Vector3(center.x, center.y, center.z), 0.05);
-    posRef.current.copy(groupRef.current.position);
+    if (Math.abs(t - lastTForOrbitUpdateRef.current) > T_UPDATE_THRESHOLD) {
+      const orbit = orbitCenters[idx];
+      targetPositionRef.current.set(
+        orbit.radius * Math.sin(t + orbit.offset) * Math.cos(orbit.inclination),
+        orbit.radius * Math.sin(t + orbit.offset) * Math.sin(orbit.inclination),
+        orbit.radius * Math.cos(t + orbit.offset)
+      );
+      lastTForOrbitUpdateRef.current = t;
+    }
 
-    const dCenter = groupRef.current.position.length();
-    if (dCenter > 9.5) {
-      groupRef.current.position.normalize().multiplyScalar(9.5 - dynamicRadius);
+    if (!hasInitializedRef.current) {
+      groupRef.current.position.copy(targetPositionRef.current);
+      posRef.current.copy(groupRef.current.position);
+      hasInitializedRef.current = true;
+    } else {
+      if (groupRef.current.position.distanceToSquared(targetPositionRef.current) > MIN_DISTANCE_TO_UPDATE * MIN_DISTANCE_TO_UPDATE) {
+        groupRef.current.position.lerp(targetPositionRef.current, 0.05);
+        posRef.current.copy(groupRef.current.position);
+      }
+    }
+
+    const maxAllowedDistance = MAX_ORBIT_RADIUS_CLAMP - dynamicRadius;
+    if (groupRef.current.position.lengthSq() > maxAllowedDistance * maxAllowedDistance) {
+      groupRef.current.position.normalize().multiplyScalar(maxAllowedDistance);
+      posRef.current.copy(groupRef.current.position);
     }
 
     if (canvasActive) {
