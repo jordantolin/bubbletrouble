@@ -12,6 +12,7 @@ import { supabase } from './supabaseClient';
 import PublicProfile from './pages/PublicProfile';
 import BubbleExpired from "./pages/BubbleExpired";
 import InstallPrompt from './components/InstallPrompt';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import { Navigate } from "react-router-dom";
 
@@ -76,32 +77,34 @@ function App() {
   if (!authChecked) return null;
 
   return (
-    <SessionContextProvider supabaseClient={supabase} initialSession={session}>
-      <Router>
-        {showIntro ? (
-          <SplashScreen onFinish={() => setShowIntro(false)} />
-        ) : (
-          <>
-            {streak && <StreakPopup count={streak} onClose={() => setStreak(null)} />}
-            <InstallPrompt />
-            <Routes>
-              {!user ? (
-                <Route path="/*" element={<AuthForm />} />
-              ) : (
-                <>
-                  <Route path="/" element={<MainApp />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/chat/:topic" element={<ChatView />} />
-<Route path="*" element={<Navigate to="/" />} />
-                  <Route path="/profile/:id" element={<PublicProfile />} />
-                  <Route path="/bubble-expired" element={<BubbleExpired />} />
-                </>
-              )}
-            </Routes>
-          </>
-        )}
-      </Router>
-    </SessionContextProvider>
+    <ErrorBoundary>
+      <SessionContextProvider supabaseClient={supabase} initialSession={session}>
+        <Router>
+          {showIntro ? (
+            <SplashScreen onFinish={() => setShowIntro(false)} />
+          ) : (
+            <>
+              {streak && <StreakPopup count={streak} onClose={() => setStreak(null)} />}
+              <InstallPrompt />
+              <Routes>
+                {!user ? (
+                  <Route path="/*" element={<AuthForm />} />
+                ) : (
+                  <>
+                    <Route path="/" element={<MainApp />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/chat/:topic" element={<ChatView />} />
+                    <Route path="*" element={<Navigate to="/" />} />
+                    <Route path="/profile/:id" element={<PublicProfile />} />
+                    <Route path="/bubble-expired" element={<BubbleExpired />} />
+                  </>
+                )}
+              </Routes>
+            </>
+          )}
+        </Router>
+      </SessionContextProvider>
+    </ErrorBoundary>
   );
 }
 

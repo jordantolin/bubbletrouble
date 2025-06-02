@@ -76,8 +76,6 @@ const Bubble = memo(React.forwardRef(({
   topic,
   reflections,
   userCount,
-  positions,
-  setPositions,
   orbitCenters,
   onClick,
   onHover,
@@ -107,7 +105,20 @@ const Bubble = memo(React.forwardRef(({
   const glowStrength = 0.21 + reflectNorm * 1.8;
 
   const groupRef = useRef();
-  const posRef = useRef({ x: 0, y: 0, z: 0 });
+  const posRef = useRef(new THREE.Vector3(0, 0, 0));
+
+  useEffect(() => {
+    if (groupRef.current && orbitCenters[idx]) {
+      const t = Math.random() * Math.PI * 2;
+      const initialOrbitPos = {
+        x: orbitCenters[idx].radius * Math.sin(t + orbitCenters[idx].offset) * Math.cos(orbitCenters[idx].inclination),
+        y: orbitCenters[idx].radius * Math.sin(t + orbitCenters[idx].offset) * Math.sin(orbitCenters[idx].inclination),
+        z: orbitCenters[idx].radius * Math.cos(t + orbitCenters[idx].offset),
+      };
+      groupRef.current.position.set(initialOrbitPos.x, initialOrbitPos.y, initialOrbitPos.z);
+      posRef.current.copy(groupRef.current.position);
+    }
+  }, [idx, orbitCenters]);
 
   useFrame(({ clock }) => {
     if (!groupRef.current || !orbitCenters[idx]) return;
@@ -118,45 +129,14 @@ const Bubble = memo(React.forwardRef(({
       z: orbitCenters[idx].radius * Math.cos(t + orbitCenters[idx].offset),
     };
 
-    let pos = posRef.current;
-    pos = {
-      x: pos.x + (center.x - pos.x) * 0.05,
-      y: pos.y + (center.y - pos.y) * 0.05,
-      z: pos.z + (center.z - pos.z) * 0.05,
-    };
+    groupRef.current.position.lerp(new THREE.Vector3(center.x, center.y, center.z), 0.05);
+    posRef.current.copy(groupRef.current.position);
 
-    for (let relax = 0; relax < 3; relax++) {
-      positions.forEach((p, j) => {
-        if (j === idx || !p) return;
-        const otherRadius = p.radius ?? 1;
-        const d = Math.sqrt((pos.x - p.x) ** 2 + (pos.y - p.y) ** 2 + (pos.z - p.z) ** 2);
-        const minDist = dynamicRadius + otherRadius + 0.18;
-        if (d < minDist && d > 0) {
-          const overlap = (minDist - d);
-          const force = overlap * 0.04;
-          const nx = (pos.x - p.x) / d;
-          const ny = (pos.y - p.y) / d;
-          const nz = (pos.z - p.z) / d;
-          pos.x += nx * force;
-          pos.y += ny * force;
-          pos.z += nz * force;
-        }
-      });
-    }
-
-    const dCenter = Math.sqrt(pos.x ** 2 + pos.y ** 2 + pos.z ** 2);
+    const dCenter = groupRef.current.position.length();
     if (dCenter > 9.5) {
-      const scale = (9.5 - dynamicRadius) / dCenter;
-      pos.x *= scale;
-      pos.y *= scale;
-      pos.z *= scale;
+      groupRef.current.position.normalize().multiplyScalar(9.5 - dynamicRadius);
     }
 
-    posRef.current = pos;
-    requestAnimationFrame(() => {
-      setPositions(idx, { ...pos, radius: dynamicRadius });
-    });
-        groupRef.current.position.set(pos.x, pos.y, pos.z);
     if (canvasActive) {
       groupRef.current.rotation.y += 0.002;
       groupRef.current.rotation.x += 0.0015;
@@ -230,7 +210,7 @@ const Bubble = memo(React.forwardRef(({
       opacity={bubbleOpacity}
     >
       <animated.meshStandardMaterial
-        color={hovered ? "#FFE46B" : bubbleColor} // colore giallo brillante quando hovered
+        color={hovered ? "#FFE46B" : bubbleColor}
         roughness={0.28}
         metalness={0.25}
         emissive={hovered ? "#fff5d1" : baseEmissive}
@@ -300,10 +280,10 @@ const PlanetCore = memo(() => (
     <mesh receiveShadow>
       <sphereGeometry args={[2.45, 64, 64]} />
       <meshStandardMaterial
-        color="#FFE680" // giallo oro pastello
+        color="#FFE680"
         roughness={0.18}
         metalness={0.55}
-        emissive="#FFD700" // oro vivo
+        emissive="#FFD700"
         emissiveIntensity={0.65}
       />
     </mesh>
@@ -341,7 +321,6 @@ class ErrorBoundary extends React.Component {
 }
 
 const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro }, ref) => {
-  const [positions, setPositionsState] = useState([]);
   const [orbitCenters, setOrbitCenters] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -384,7 +363,6 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
     const android = /android/i.test(userAgent);
     setIsIPhone(iPhone);
     setIsAndroid(android);
-    setIsMobile(iPhone || android);
   }, []);
 
   const handleCreateBubbleClick = async () => {
@@ -416,7 +394,7 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
     if (!session?.user?.id) {
       alert('Sessione scaduta.');
       setShowModal(false);
-      return;
+      return null;
     }
 
     try {
@@ -462,10 +440,10 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
       console.error("[ThreeDCanvas] Tentativo di navigare con una bolla non valida o senza ID:", bubble);
       showToast({ title: 'Errore', message: 'Impossibile aprire la bolla selezionata.', type: NOTIFICATION_TYPES.ERROR });
       return;
-      if (!bubble?.id || bubble?.expired) {
-        showToast({ title: 'Expired', message: 'Questa bolla non esiste più', type: NOTIFICATION_TYPES.ERROR });
+    }
+    if (bubble.expired) {
+        showToast({ title: 'Expired', message: 'Questa bolla non esiste più.', type: NOTIFICATION_TYPES.ERROR });
         return;
-      }    
     }
 
     if (onBubbleClick) {
@@ -479,17 +457,9 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
 
   useEffect(() => {
     if (!validBubbles.length) {
-      setPositionsState([]);
       setOrbitCenters([]);
       return;
     }
-
-    const newPositions = validBubbles.map((_, i) => 
-      (positions[i] && typeof positions[i].radius !== 'undefined') 
-        ? positions[i] 
-        : { x: Math.random() * 4 - 2, y: Math.random() * 4 - 2, z: Math.random() * 4 - 2, radius: 1 }
-    );
-    setPositionsState(newPositions);
 
     const newCenters = validBubbles.map((_, i) => 
       (orbitCenters[i] && typeof orbitCenters[i].speed !== 'undefined') 
@@ -505,18 +475,6 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
   }, [validBubbles]);
   
 
-  const setPositions = useCallback((idx, pos) => {
-    setPositionsState((prev) => {
-      if (idx < 0 || idx >= prev.length) {
-          console.warn(`[ThreeDCanvas] setPositions: idx ${idx} out of bounds for prev length ${prev.length}. This might indicate a stale update attempt.`);
-          return prev;
-      }
-      const updated = [...prev];
-      updated[idx] = pos;
-      return updated;
-    });
-  }, []);
-
   useEffect(() => {
     if (!isMobile || !tooltip.visible) return;
     const handler = () => setTooltip(prev => ({ ...prev, visible: false }));
@@ -527,6 +485,15 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
   useEffect(() => {
     if (canvasActive) setLoading(false);
   }, [canvasActive]);
+
+  React.useImperativeHandle(ref, () => ({
+    focusOnBubble: (bubbleId) => {
+        const bubbleIndex = validBubbles.findIndex(b => b.id === bubbleId);
+        if (bubbleIndex !== -1) {
+            console.warn("[ThreeDCanvas] focusOnBubble called for bubbleId:", bubbleId, "Implementation pending.");
+        }
+    }
+  }));
 
   return (
     <>
@@ -635,7 +602,7 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
   maxDistance={30}
   minDistance={10}
   minPolarAngle={0}
-  maxPolarAngle={Math.PI} // mantiene valore completo
+  maxPolarAngle={Math.PI}
   enableDamping
   dampingFactor={0.07}
   rotateSpeed={0.4}
@@ -646,34 +613,16 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
 
 <PlanetCore />
 {Array.isArray(validBubbles) &&
- Array.isArray(positions) &&
  Array.isArray(orbitCenters) &&
- positions.length === validBubbles.length &&
  orbitCenters.length === validBubbles.length && (() => {
-  const now = Date.now();
-  const liveBubbles = [];
-  const livePositions = [];
-  const liveOrbitCenters = [];
-
-  validBubbles.forEach((bubble, i) => {
-    const createdAt = new Date(bubble.created_at).getTime();
-    if (now - createdAt < 24 * 60 * 60 * 1000) {
-      liveBubbles.push(bubble);
-      livePositions.push(positions[i]);
-      liveOrbitCenters.push(orbitCenters[i]);
-    }
-  });
-
-  return liveBubbles.map((bubble, i) => (
+  return validBubbles.map((bubble, i) => (
     <Bubble
       key={bubble.id}
       idx={i}
       topic={bubble}
       reflections={bubble.reflections || 0}
       userCount={bubble.userCount || 0}
-      positions={livePositions}
-      setPositions={setPositions}
-      orbitCenters={liveOrbitCenters}
+      orbitCenters={orbitCenters}
       onClick={handleBubbleClick}
       onHover={(e, topic, reflections, userCount) => {
         if (e && topic) {

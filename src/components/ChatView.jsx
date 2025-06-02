@@ -26,39 +26,13 @@ dayjs.extend(duration);
 
 
 // --- UPLOAD VERCEL BLOB: UNICA FUNZIONE --- //
-async function uploadToDropbox(file) {
-  const ACCESS_TOKEN = "sl.u.AFyl3fQ2rd66dqvoNT4jyH_wmHGDHgN97j2kF1ExSoEA5NAa_SCeUFjDYZp4jDN3UKcLXEsGvB3a9tWMAJRH8_dHpwE9orB66JVMTDiPqOBx5DVBFXZ6BkBaoRaT42s7gZj9Ar15nhXn66hyTWwao6DK2QNaYKR3O3eYK2obQhVhNF_XZJ_AyitQQcy6gVvFQcNEMd22eipYKpeTqEVgdi-8SUv8J_Yuc1WmHBbrB4hFBdpd2XNoGs-Teyhx8UV-rGxUv2B8vcQD1dagUk_d5XWylLggpsk8EduOd1bz9siDC9QySgz65oOUScRcFVZ7uXZ1K6WJJIv7SVwTxebEO5Sb2cU4HUTdpGWsWcTNODREXbVokk5J7NUYqF6h9TNwy6hoKda_XlDv3WiIeJgW1RbI7egZuKz2T209Zk9at2U6nw2coTbsQO7ccK1aI3Dv2qH8hGW6y9rMnYRwsca_3UKR03_CqwviIAA0Yh32RYSehiGd30MmrjR_gvx9fWNvIB525LawZqq-VAdkzYmGasisyrTk1DUkoIqKM2fJTbVwsBWy1Gy_a4TaG4kIkdMbC_-exqF8lifVjY5N2Uu8zmL_IrREV8pUeS_FmG-3fSLk2hxngLNzW2NTilFSI09vFsN6i0vdB7jA8BlENVa_An75ACipfae_wU7h1rw_MCHMWqHldk6Dr1DMUAHhdnqdbLXqjr5mUcDHpM9sjk5UcFexDAa4lTkgN8xcany2la_upBq8kwDTQJp7FARrhhNEuTzKs0aGHX1WIwBHSY7dDkR7X-rHUlMusHcOKrP9mtOtS4GfdmH_TsK9iIxhUl5r4esXT7UeqTr7qQ37B1iTRHjfqz_otjCEWmnhUOfx7GOwq4L9ci54RvUJ85bHYqjzmwPt63o7L_3UXeZyYug0Jqwo3fRhpH1PinNqFPnvSa16J3FXwX0OMkObIuvnz1u2Z603ypoV7JL-AzlK_UdXZbuPzUeDCKn3L-pXdJr0yRix3PCY7yRvZnHPoY2Obg5-nrXxbQ_iDiFUY-zpALHYEVHdu9KoPgYMDrUCFocw_JulxAcs8W9LyYUkJ5KGINskKwaitA7CvKVgxrNJQI7goM5KMG8T_keWlmq53JYv1P8axRQVAprSCwalFCtU-vxZ8A403aZE3NGvVfD6jd6MJe19FBwcrYr69FqXW_cQ0vx9c_pYMvd2ZJSGyqjd_lxWsQ91Ebo7fAaoTpb7sa46B-k6CQdnuoGyyd5TUpMbgnfQUSo89fcXClkh_eRO-eMX3DDeuE0CD7VNwq0i6LP7xAGObDitDpJYgh6Vm7Fd5SkbVEJYFxBfaDG_7ubLtVmFMYSFJKSPNPxWtq4kBZRKY4U_jYOLvFPKUQbe6a43K3JVJ4Nr8_hDDTmSppnAA6EX5aiOkF__JdU32vBPUEq31vvU3yXpyir5ce9fYfzw8tIJeA";
-  // Upload file
-  const res = await fetch("https://content.dropboxapi.com/2/files/upload", {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + ACCESS_TOKEN,
-      "Dropbox-API-Arg": JSON.stringify({
-        path: "/bubbletrouble/" + Date.now() + "-" + file.name,
-        mode: "add",
-        autorename: true,
-        mute: false
-      }),
-      "Content-Type": "application/octet-stream"
-    },
-    body: file
-  });
-
-  const uploadData = await res.json();
-  // Ottieni link pubblico diretto
-  const linkRes = await fetch("https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings", {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + ACCESS_TOKEN,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ path: uploadData.path_display })
-  });
-  const linkData = await linkRes.json();
-  // Link diretto raw (per audio/video)
-  return linkData.url.replace("?dl=0", "?raw=1");
-}
-
+// async function uploadToDropbox(file) { // MARKED FOR REMOVAL - CONTAINS HARDCODED SECRETS
+//   const ACCESS_TOKEN = "YOUR_ACCESS_TOKEN_HERE"; // DO NOT HARDCODE SECRETS
+//   // ... existing function body ...
+//   return linkData.url.replace("?dl=0", "?raw=1");
+// }
+// IMPORTANT: The function uploadToDropbox has been removed due to a hardcoded access token.
+// File uploads requiring Dropbox integration must be implemented via a secure backend service.
 
 const uploadingMessages = new Set();
 let mediaSending = false;
