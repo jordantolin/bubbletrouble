@@ -10,8 +10,14 @@ const TopBubblesFeed = ({ onSelect }) => {
     fetchAndSyncBubbles();
   }, [fetchAndSyncBubbles]);
 
+  const now = Date.now();
   const topBubbles = [...bubbles]
-    .filter(b => typeof b.reflections === "number")
+    .filter(b => {
+      // Ensure created_at exists before trying to parse it
+      if (!b.created_at) return false;
+      const createdAt = new Date(b.created_at).getTime();
+      return typeof b.reflections === "number" && (now - createdAt < 24 * 60 * 60 * 1000);
+    })
     .sort((a, b) => b.reflections - a.reflections)
     .slice(0, 5);
 

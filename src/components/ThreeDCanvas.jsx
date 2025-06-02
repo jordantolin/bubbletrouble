@@ -256,7 +256,14 @@ const Bubble = memo(React.forwardRef(({
       />
     </animated.mesh>
   
-    <Html distanceFactor={10} style={{ pointerEvents: 'none', userSelect: 'none', marginTop: -12 }}>
+    <Html
+  distanceFactor={10}
+  occlude
+  onOcclude={(visible) => {
+    // puoi anche fare qualcosa qui se vuoi animare la scomparsa
+  }}
+  style={{ pointerEvents: 'none', userSelect: 'none', marginTop: -12 }}
+>
       <div
         className="font-semibold font-elegant"
         style={{
@@ -603,49 +610,61 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
 
 
 
-            <PlanetCore />
-            {Array.isArray(bubbles) &&
-              Array.isArray(positions) &&
-              Array.isArray(orbitCenters) &&
-              typeof positions?.length === 'number' &&
-              typeof orbitCenters?.length === 'number' &&
-              positions.length === bubbles.length &&
-              orbitCenters.length === bubbles.length &&
-              bubbles.map((bubble, i) => (
-                <Bubble
-                  key={bubble.id}
-                  idx={i}
-                  topic={bubble}
-                  reflections={bubble.reflections || 0}
-                  userCount={bubble.userCount || 0}
-                  positions={positions}
-                  setPositions={setPositions}
-                  orbitCenters={orbitCenters}
-                  onClick={handleBubbleClick}
-                  onHover={(e, topic, reflections, userCount) => {
-                    if (e && topic) {
-                      setTooltip({
-                        visible: true,
-                        ...(isMobile
-                          ? { x: 0, y: 0 }
-                          : { x: e.clientX + 12, y: e.clientY + 8 }
-                        ),
-                        topicTitle: topic.name,
-                        topic: topic.topic,
-                        description: topic.description,
-                        reflections: typeof reflections === "number" ? reflections : 0,
-                        userCount: typeof userCount === "number" ? userCount : 0,
-                      });
-                    } else {
-                      setTooltip(prev => ({ ...prev, visible: false }));
-                    }
-                  }}
-                  isMobile={isMobile}
-                  isNew={bubble.id === newBubbleId}
-                  canvasActive={canvasActive}
-                />
-              ))}
+<PlanetCore />
+{Array.isArray(bubbles) &&
+  Array.isArray(positions) &&
+  Array.isArray(orbitCenters) &&
+  typeof positions?.length === 'number' &&
+  typeof orbitCenters?.length === 'number' && (() => {
+    const now = Date.now();
+    const liveBubbles = [];
+    const livePositions = [];
+    const liveOrbitCenters = [];
 
+    bubbles.forEach((bubble, i) => {
+      const createdAt = new Date(bubble.created_at).getTime();
+      if (now - createdAt < 24 * 60 * 60 * 1000) {
+        liveBubbles.push(bubble);
+        livePositions.push(positions[i]);
+        liveOrbitCenters.push(orbitCenters[i]);
+      }
+    });
+
+    return liveBubbles.map((bubble, i) => (
+      <Bubble
+        key={bubble.id}
+        idx={i}
+        topic={bubble}
+        reflections={bubble.reflections || 0}
+        userCount={bubble.userCount || 0}
+        positions={livePositions}
+        setPositions={setPositions}
+        orbitCenters={liveOrbitCenters}
+        onClick={handleBubbleClick}
+        onHover={(e, topic, reflections, userCount) => {
+          if (e && topic) {
+            setTooltip({
+              visible: true,
+              ...(isMobile
+                ? { x: 0, y: 0 }
+                : { x: e.clientX + 12, y: e.clientY + 8 }),
+              topicTitle: topic.name,
+              topic: topic.topic,
+              description: topic.description,
+              reflections: typeof reflections === "number" ? reflections : 0,
+              userCount: typeof userCount === "number" ? userCount : 0,
+            });
+          } else {
+            setTooltip(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        isMobile={isMobile}
+        isNew={bubble.id === newBubbleId}
+        canvasActive={canvasActive}
+      />
+    ));
+  })()
+}
           </Canvas>
         </ErrorBoundary>
       </div>
