@@ -1,5 +1,6 @@
-import React from 'react';
 import { useBubblesStore } from '../stores/useBubblesStore';
+import React, { useState, useEffect } from 'react';
+
 
 const hasUserReflected = (bubble) => {
   const uid = localStorage.getItem('bt_uid') || 'guest';
@@ -9,33 +10,40 @@ const hasUserReflected = (bubble) => {
 const MobileTooltip = ({ tooltip, onClose }) => {
   const { toggleReflect, bubbles } = useBubblesStore();
   const bubble = bubbles.find(b => b.name === tooltip.topicTitle || b.topic === tooltip.topicTitle);
+  const [mounted, setMounted] = useState(false);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
   return (
     <div
-      style={{
-        position: 'fixed',
-        left: 0,
-        bottom: 0,
-        width: '100vw',
-        minHeight: 90,
-        background: 'rgba(255, 250, 224, 0.98)',
-        color: '#333',
-        fontWeight: 600,
-        fontSize: 19,
-        borderTop: '2.2px solid #ffd600',
-        borderRadius: '22px 22px 0 0',
-        zIndex: 10000,
-        boxShadow: '0 -7px 36px 0 rgba(255,200,32,0.12)',
-        padding: 24,
-        transition: 'transform 0.19s cubic-bezier(.51,.26,.45,1.33)',
-        transform: tooltip.visible ? 'translateY(0)' : 'translateY(100%)',
-        pointerEvents: tooltip.visible ? 'auto' : 'none',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 9,
-        textAlign: 'center',
-      }}
+    style={{
+      position: 'fixed',
+      top: '80px',
+      left: 0,
+      width: '100vw',
+      minHeight: 90,
+      background: 'rgba(255, 250, 224, 0.98)',
+      color: '#333',
+      fontWeight: 600,
+      fontSize: 19,
+      border: '2px solid #ffd600',
+      borderRadius: '18px',
+      zIndex: 10000,
+      boxShadow: '0 6px 18px rgba(255,200,32,0.15)',
+      padding: '16px 24px 20px 24px',
+      opacity: mounted && tooltip.visible ? 1 : 0,
+      transform: mounted && tooltip.visible ? 'translateY(0)' : 'translateY(-130%)',
+      transition: 'all 0.25s ease',
+      pointerEvents: tooltip.visible ? 'auto' : 'none',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 9,
+      textAlign: 'center',
+    }}
+    
       onClick={onClose}
     >
       <div style={{
