@@ -268,7 +268,7 @@ useEffect(() => {
 
   
   const bubbleTitle = bubble?.title || '';
-const bubblePrompt = bubble?.prompt || '';
+  // const bubblePrompt = bubble?.prompt || ''; // Replaced by bubble.description for clarity
 const bubbleCategory = bubble?.category || '';
 
   if (!bubble) return <div>Caricamento...</div>;
@@ -1264,7 +1264,9 @@ const bubbleCategory = bubble?.category || '';
               className="overflow-hidden transition-all duration-500 ease-in-out"
               style={{ maxHeight: isDescriptionOpen ? '1000px' : '0px', opacity: isDescriptionOpen ? 1 : 0 }}
             >
-              <p className="text-sm text-muted-foreground break-words pt-1 pb-2 pr-2">{bubblePrompt || "Nessuna descrizione."}</p>
+              <p className="text-sm text-gray-700 leading-snug italic break-words pt-1 pb-2 pr-2 border-l-2 border-yellow-300 pl-2 my-1">
+                {bubble.description?.trim() ? bubble.description : "Nessuna descrizione."}
+              </p>
             </div>
           </div>
 
