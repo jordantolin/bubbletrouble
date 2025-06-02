@@ -13,6 +13,8 @@ import PublicProfile from './pages/PublicProfile';
 import BubbleExpired from "./pages/BubbleExpired";
 import InstallPrompt from './components/InstallPrompt';
 
+import { Navigate } from "react-router-dom";
+
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 
 function App() {
@@ -90,6 +92,7 @@ function App() {
                   <Route path="/" element={<MainApp />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/chat/:topic" element={<ChatView />} />
+<Route path="*" element={<Navigate to="/" />} />
                   <Route path="/profile/:id" element={<PublicProfile />} />
                   <Route path="/bubble-expired" element={<BubbleExpired />} />
                 </>

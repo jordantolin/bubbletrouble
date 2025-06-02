@@ -79,9 +79,21 @@ function getBubbleCountdown(createdAt) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-
-
-
+// ✅ Ripristino funzione clean
+function clean(arr) {
+  return arr.filter((m, i, all) =>
+    !(
+      m.pending &&
+      all.some(
+        real =>
+          !real.pending &&
+          real.content === m.content &&
+          real.type === m.type &&
+          real.user_id === m.user_id
+      )
+    )
+  );
+}
 
 // PALETTE & HELPERS
 const YELLOW_PALETTES = [
@@ -271,6 +283,7 @@ function ChatView() {
   const fetchReflectionsForBubbleAndUpdateStore = useBubblesStore(state => state.fetchReflectionsForBubbleAndUpdateStore);
 
   const navigate = useNavigate();
+  const chatContainerRef = useRef(null); // Ref for swipe gesture
 
 
 useEffect(() => {
@@ -287,63 +300,9 @@ const bubbleCategory = bubble?.category || '';
   if (!bubble) return <div>Caricamento...</div>;
 
   const [countdown, setCountdown] = useState(getBubbleCountdown(bubble.created_at));
-  
+  const [isDescriptionOpen, setIsDescriptionOpen] = useState(false); // New state for dropdown
+
   const reflectionsCount = typeof bubble?.reflections === "number" ? bubble.reflections : 0;
-
-  useEffect(() => {
-    let startX = 0;
-    let isSwiping = false;
-  
-    const handleTouchStart = (e) => {
-      startX = e.touches[0].clientX;
-      isSwiping = true;
-    };
-  
-    const handleTouchMove = (e) => {
-      if (!isSwiping) return;
-      const currentX = e.touches[0].clientX;
-      const deltaX = currentX - startX;
-  
-      // Swipe verso destra oltre soglia (tipo iOS back gesture)
-      if (deltaX > 80) {
-        isSwiping = false; // blocca swipe multipli
-        navigate('/', { replace: true }); // 🔁 naviga SUBITO senza "scatto"
-      }
-    };
-  
-    const handleTouchEnd = () => {
-      isSwiping = false;
-    };
-  
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: true });
-    window.addEventListener('touchend', handleTouchEnd);
-  
-    return () => {
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [navigate]);
-  
-  
-
-
-  function clean(arr) {
-    return arr.filter((m, i, all) =>
-      !(
-        m.pending &&
-        all.some(
-          real =>
-            !real.pending &&
-            real.content === m.content &&
-            real.type === m.type &&
-            real.user_id === m.user_id
-        )
-      )
-    );
-  }
-
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -351,6 +310,78 @@ const bubbleCategory = bubble?.category || '';
     }, 1000);
     return () => clearInterval(interval);
   }, [bubble.created_at]);
+
+  // Swipe back gesture for mobile
+  useEffect(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    let startX = 0;
+    let startY = 0;
+    let isSwiping = false; // This flag determines if the CURRENT gesture is being processed as a swipe by our logic.
+                           // It's reset on touchstart and can be turned off during touchmove if a scroll is detected.
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 1) { // Only consider single-touch gestures for our swipe logic.
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        isSwiping = true; // Assume it's a potential swipe until proven otherwise (e.g., it becomes a clear scroll).
+      } else {
+        isSwiping = false; // More than one touch point, not a swipe we handle.
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (!isSwiping || e.touches.length !== 1) {
+        // If isSwiping is already false (meaning we've decided this gesture is a scroll),
+        // or if it's no longer a single touch, do nothing further with this event.
+        return;
+      }
+
+      const currentX = e.touches[0].clientX;
+      const currentY = e.touches[0].clientY;
+      const deltaX = currentX - startX;
+      const deltaY = currentY - startY;
+      
+      const absDeltaX = Math.abs(deltaX);
+      const absDeltaY = Math.abs(deltaY);
+
+      // CRITICAL FIRST CHECK: If vertical movement is more significant than horizontal,
+      // this gesture is primarily a scroll. Our custom swipe logic should yield.
+      // Setting isSwiping to false ensures subsequent touchmove events for THIS GESTURE
+      // are ignored by this handler, allowing native scroll to dominate.
+      if (absDeltaY > absDeltaX) {
+        isSwiping = false; 
+        return; // Yield to native vertical scrolling.
+      }
+      
+      // If we're here, it means absDeltaX >= absDeltaY (horizontal movement is dominant or equal).
+      // Now, check if this dominant horizontal movement qualifies as a swipe-right for navigation.
+      if (deltaX > 70) { // Threshold for swipe-right navigation.
+        navigate('/', { replace: true });
+        isSwiping = false; // Important: Deactivate swiping for this gesture after navigation to prevent multiple triggers.
+      }
+      // If horizontal movement is dominant but doesn't meet navigation criteria (e.g., swipe left, or too short),
+      // isSwiping remains true for this touchmove event. We don't navigate. Native horizontal scrolling
+      // is prevented by `touchAction: pan-y` on the containers and no horizontal overflow.
+    };
+
+    const handleTouchEnd = () => {
+      isSwiping = false; // Reset swipe state at the end of the touch sequence
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: true });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+    container.addEventListener('touchcancel', handleTouchEnd, { passive: true }); // Handle cancellation too
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [navigate]); // Dependency: navigate
 
 
   // --- CONTROLLO SCADENZA 24H ---
@@ -1217,9 +1248,10 @@ const bubbleCategory = bubble?.category || '';
 
   return (
 <div
+  ref={chatContainerRef}
   className="chat-container flex flex-col"
   style={{
-    touchAction: 'none',
+    touchAction: 'pan-y',
     overscrollBehavior: 'none',
     WebkitOverflowScrolling: 'touch',
     userSelect: 'none',
@@ -1231,17 +1263,45 @@ const bubbleCategory = bubble?.category || '';
 >
 
 <div className="flex flex-col flex-1 bg-[#FFF9ED] overflow-x-hidden" style={{ minHeight: 0 }}> {/* Main content scroll area */}
-    {/* Info Card Fissa */}
-    <div className="relative z-10 bg-white rounded-b-2xl shadow-sm border-b border-yellow-300">
+    {/* Info Card Fissa - Updated classes for sticky behavior and style */}
+    <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-yellow-300">
       <div className="flex items-start justify-between px-4 pt-3 pb-2">
-        <div className="min-w-0 mr-2"> {/* Added mr-2 for spacing, min-w-0 allows shrinking */}
+        <div className="min-w-0 mr-2 flex-grow"> {/* Added flex-grow */}
           <h1 className="text-lg font-semibold leading-none break-words">{bubble?.name || 'Untitled'}</h1>
-          <p className="text-sm text-muted-foreground break-words">{bubblePrompt || "..."}</p>
-          <p className="mt-1 text-xl">{timerText || "∞"}</p>
+          
+          {/* Dropdown Descrizione */}
+          <div className="mt-1">
+            <button 
+              onClick={() => setIsDescriptionOpen(!isDescriptionOpen)}
+              className="text-sm text-yellow-600 hover:text-yellow-700 flex items-center focus:outline-none"
+            >
+              {isDescriptionOpen ? 'Nascondi' : 'Leggi di più'}
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className={`h-4 w-4 ml-1 transition-transform duration-300 ${isDescriptionOpen ? 'rotate-180' : ''}`} 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div 
+              className="overflow-hidden transition-all duration-500 ease-in-out"
+              style={{ maxHeight: isDescriptionOpen ? '1000px' : '0px', opacity: isDescriptionOpen ? 1 : 0 }}
+            >
+              <p className="text-sm text-muted-foreground break-words pt-1 pb-2 pr-2">{bubblePrompt || "Nessuna descrizione."}</p>
+            </div>
+          </div>
+
+          {/* Countdown Timer - Styled as per request */}
+          <p className="mt-1 px-3 py-1 rounded-full bg-yellow-50 text-yellow-800 font-mono tracking-wide shadow-inner text-sm w-fit">
+            {countdown}
+          </p>
         </div>
-        <div className="flex flex-col items-end gap-2 min-w-0 shrink-0"> {/* min-w-0 allows shrinking, shrink-0 prevents it from shrinking too much if category is long */}
-          <p className="text-sm font-medium text-right text-gray-700 break-words">
-            {bubble?.topic || 'Senza categoria'}
+        <div className="flex flex-col items-end gap-2 min-w-0 shrink-0 ml-2"> {/* Added ml-2 for spacing */}
+          <p className="text-sm font-medium text-right text-gray-700 break-words whitespace-nowrap"> {/* Added whitespace-nowrap */}
+            {bubble?.category || 'Senza categoria'}
           </p>
           <button
   onClick={toggleReflection}
@@ -1262,8 +1322,12 @@ const bubbleCategory = bubble?.category || '';
       <div
         className="messages flex-1 overflow-y-auto overflow-x-hidden px-4 pt-2"
         style={{
-          paddingBottom: '1rem',
-          scrollPaddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 70px)'
+          WebkitOverflowScrolling: 'touch',     // For smooth iOS momentum scrolling
+          overscrollBehavior: 'contain',       // Prevents scroll chaining (e.g., to body/window)
+          minHeight: 0,                        // Essential in flex layouts for children to scroll correctly
+          touchAction: 'pan-y',                 // Explicitly allow vertical panning (scrolling) on this element
+          paddingBottom: '1rem',               // Preserve existing style
+          scrollPaddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 70px)' // Preserve existing style
         }}
       >
         {clean(messages).map((msg, i) => {

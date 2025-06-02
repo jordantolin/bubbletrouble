@@ -5,7 +5,8 @@ import React, {
   useCallback,
   lazy,
   Suspense,
-  memo
+  memo,
+  useMemo
 } from 'react';
 
 import * as THREE from 'three';
@@ -358,6 +359,18 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
   const session = useSession();
   const navigate = useNavigate();
 
+  const validBubbles = useMemo(() => {
+    if (!Array.isArray(bubbles) || !bubbles.length) {
+      return [];
+    }
+    const now = Date.now();
+    return bubbles.filter(b => {
+      if (!b.created_at) return false;
+      const createdAt = new Date(b.created_at).getTime();
+      return (now - createdAt) < (24 * 60 * 60 * 1000);
+    });
+  }, [bubbles]);
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     setIsMobile(window.innerWidth < 768);
@@ -449,6 +462,10 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
       console.error("[ThreeDCanvas] Tentativo di navigare con una bolla non valida o senza ID:", bubble);
       showToast({ title: 'Errore', message: 'Impossibile aprire la bolla selezionata.', type: NOTIFICATION_TYPES.ERROR });
       return;
+      if (!bubble?.id || bubble?.expired) {
+        showToast({ title: 'Expired', message: 'Questa bolla non esiste più', type: NOTIFICATION_TYPES.ERROR });
+        return;
+      }    
     }
 
     if (onBubbleClick) {
@@ -461,27 +478,44 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
   }, [onBubbleClick, navigate, showToast]);
 
   useEffect(() => {
-    if (!Array.isArray(bubbles) || !bubbles.length) return;
+    if (!validBubbles.length) {
+      setPositionsState([]);
+      setOrbitCenters([]);
+      return;
+    }
 
-    const newPositions = bubbles.map((_, i) => positions[i] || { x: 0, y: 0, z: 0, radius: 1 });
-    setPositionsState(newPositions.slice(0, bubbles.length));
+    const newPositions = validBubbles.map((_, i) => 
+      (positions[i] && typeof positions[i].radius !== 'undefined') 
+        ? positions[i] 
+        : { x: Math.random() * 4 - 2, y: Math.random() * 4 - 2, z: Math.random() * 4 - 2, radius: 1 }
+    );
+    setPositionsState(newPositions);
 
-    const newCenters = bubbles.map((_, i) => orbitCenters[i] || {
-      radius: 6 + Math.random() * 3,
-      speed: 0.13 + Math.random() * 0.09,
-      offset: Math.random() * Math.PI * 2,
-      inclination: Math.random() * Math.PI,
-    });
-    setOrbitCenters(newCenters.slice(0, bubbles.length));
-  }, [bubbles]);
+    const newCenters = validBubbles.map((_, i) => 
+      (orbitCenters[i] && typeof orbitCenters[i].speed !== 'undefined') 
+        ? orbitCenters[i] 
+        : {
+            radius: 6 + Math.random() * 3,
+            speed: 0.13 + Math.random() * 0.09,
+            offset: Math.random() * Math.PI * 2,
+            inclination: Math.random() * Math.PI,
+          }
+    );
+    setOrbitCenters(newCenters);
+  }, [validBubbles]);
+  
 
-  const setPositions = (idx, pos) => {
+  const setPositions = useCallback((idx, pos) => {
     setPositionsState((prev) => {
+      if (idx < 0 || idx >= prev.length) {
+          console.warn(`[ThreeDCanvas] setPositions: idx ${idx} out of bounds for prev length ${prev.length}. This might indicate a stale update attempt.`);
+          return prev;
+      }
       const updated = [...prev];
       updated[idx] = pos;
       return updated;
     });
-  };
+  }, []);
 
   useEffect(() => {
     if (!isMobile || !tooltip.visible) return;
@@ -611,60 +645,59 @@ const ThreeDCanvas = memo(React.forwardRef(({ bubbles, onBubbleClick, showIntro 
 
 
 <PlanetCore />
-{Array.isArray(bubbles) &&
-  Array.isArray(positions) &&
-  Array.isArray(orbitCenters) &&
-  typeof positions?.length === 'number' &&
-  typeof orbitCenters?.length === 'number' && (() => {
-    const now = Date.now();
-    const liveBubbles = [];
-    const livePositions = [];
-    const liveOrbitCenters = [];
+{Array.isArray(validBubbles) &&
+ Array.isArray(positions) &&
+ Array.isArray(orbitCenters) &&
+ positions.length === validBubbles.length &&
+ orbitCenters.length === validBubbles.length && (() => {
+  const now = Date.now();
+  const liveBubbles = [];
+  const livePositions = [];
+  const liveOrbitCenters = [];
 
-    bubbles.forEach((bubble, i) => {
-      const createdAt = new Date(bubble.created_at).getTime();
-      if (now - createdAt < 24 * 60 * 60 * 1000) {
-        liveBubbles.push(bubble);
-        livePositions.push(positions[i]);
-        liveOrbitCenters.push(orbitCenters[i]);
-      }
-    });
+  validBubbles.forEach((bubble, i) => {
+    const createdAt = new Date(bubble.created_at).getTime();
+    if (now - createdAt < 24 * 60 * 60 * 1000) {
+      liveBubbles.push(bubble);
+      livePositions.push(positions[i]);
+      liveOrbitCenters.push(orbitCenters[i]);
+    }
+  });
 
-    return liveBubbles.map((bubble, i) => (
-      <Bubble
-        key={bubble.id}
-        idx={i}
-        topic={bubble}
-        reflections={bubble.reflections || 0}
-        userCount={bubble.userCount || 0}
-        positions={livePositions}
-        setPositions={setPositions}
-        orbitCenters={liveOrbitCenters}
-        onClick={handleBubbleClick}
-        onHover={(e, topic, reflections, userCount) => {
-          if (e && topic) {
-            setTooltip({
-              visible: true,
-              ...(isMobile
-                ? { x: 0, y: 0 }
-                : { x: e.clientX + 12, y: e.clientY + 8 }),
-              topicTitle: topic.name,
-              topic: topic.topic,
-              description: topic.description,
-              reflections: typeof reflections === "number" ? reflections : 0,
-              userCount: typeof userCount === "number" ? userCount : 0,
-            });
-          } else {
-            setTooltip(prev => ({ ...prev, visible: false }));
-          }
-        }}
-        isMobile={isMobile}
-        isNew={bubble.id === newBubbleId}
-        canvasActive={canvasActive}
-      />
-    ));
-  })()
-}
+  return liveBubbles.map((bubble, i) => (
+    <Bubble
+      key={bubble.id}
+      idx={i}
+      topic={bubble}
+      reflections={bubble.reflections || 0}
+      userCount={bubble.userCount || 0}
+      positions={livePositions}
+      setPositions={setPositions}
+      orbitCenters={liveOrbitCenters}
+      onClick={handleBubbleClick}
+      onHover={(e, topic, reflections, userCount) => {
+        if (e && topic) {
+          setTooltip({
+            visible: true,
+            ...(isMobile
+              ? { x: 0, y: 0 }
+              : { x: e.clientX + 12, y: e.clientY + 8 }),
+            topicTitle: topic.name,
+            topic: topic.topic,
+            description: topic.description,
+            reflections: typeof reflections === "number" ? reflections : 0,
+            userCount: typeof userCount === "number" ? userCount : 0,
+          });
+        } else {
+          setTooltip(prev => ({ ...prev, visible: false }));
+        }
+      }}
+      isMobile={isMobile}
+      isNew={bubble.id === newBubbleId}
+      canvasActive={canvasActive}
+    />
+  ));
+})()}
           </Canvas>
         </ErrorBoundary>
       </div>
